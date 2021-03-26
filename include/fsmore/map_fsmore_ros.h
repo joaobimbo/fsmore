@@ -1,0 +1,35 @@
+#ifndef MAP_FSMORE_ROS_H
+#define MAP_FSMORE_ROS_H
+#include <fsmore/map_fsmore.h>
+#include <ros/ros.h>
+#include <geometry_msgs/WrenchStamped.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <visualization_msgs/Marker.h>
+
+#include <tf2_ros/transform_listener.h>
+#include <eigen_conversions/eigen_msg.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+class MapFsmoreROS{
+public:
+    MapFsmore mapper;
+    MapFsmoreROS();
+
+protected:
+    bool Initialize();
+    ros::NodeHandle *n;
+    ros::Subscriber force_sub;
+    ros::Publisher line_pub;
+    void cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg);
+    bool first_ft_cb=true;
+    geometry_msgs::Wrench bias_ft;
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener *tfListener;
+    inline Eigen::Vector3f toEigen(geometry_msgs::Vector3 in);
+    inline Eigen::Affine3f toEigen(geometry_msgs::Transform m);
+    visualization_msgs::Marker setupLines(std::string frame_id);
+    void AddToMarkerLines(Line l,visualization_msgs::Marker &m);
+
+};
+
+#endif // MAP_FSMORE_ROS_H
