@@ -10,12 +10,12 @@
 #include <pcl/octree/octree_pointcloud_occupancy.h>
 #include <map>
 #include <memory>
-
+#include <boost/functional/hash.hpp>
 
 typedef pcl::PointXYZINormal PType;
 typedef pcl::PointCloud<PType> PCType;
 typedef pcl::octree::OctreePointCloudSearch<PType> OctType;
-
+typedef pcl::octree::OctreeKey MapKey;
 
 class Voxel;
 class Line;
@@ -25,7 +25,7 @@ public:
     Line(Eigen::Vector3f start, Eigen::Vector3f end){
         p1=start;
         p2=end;
-        dir=p2-p1;
+        dir=(p2-p1).normalized();
     }
 
     Line Transform(Eigen::Affine3f T){
@@ -43,7 +43,7 @@ protected:
 
 class Voxel{
 public:
-    Voxel(OctType::Ptr tree, pcl::octree::OctreeKey in){
+    Voxel(OctType::Ptr tree, size_t in){
         key=in;
         map=tree;
 
@@ -60,7 +60,7 @@ public:
     std::vector<Line*> intersecting;
     Eigen::Vector3f p;
     OctType::Ptr map;
-    pcl::octree::OctreeKey key;
+    size_t key;
     PType point;
     float likelihood;
 
@@ -73,16 +73,16 @@ class MapFsmore{
 public:
     MapFsmore();
     bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T);
-    pcl::PointCloud<pcl::PointXYZI>  getMapPointCloud();
-    pcl::PointCloud<pcl::PointXYZI>  getObjectPointCloud();
+    PCType getMapPointCloud();
+    PCType getObjectPointCloud();
     OctType::Ptr oct_map,oct_obj;
     PCType::Ptr pc_obj,pc_map;
 
 protected:
     const float line_half_length=1.0f;
     std::vector<Line> lines_map,lines_obj;
-    std::map<pcl::octree::OctreeKey,Voxel> map_map,map_obj;
-
+    std::map<size_t,Voxel> map_map,map_obj;
+    size_t KeyHasher(MapKey key_arg);
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
     pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctType::Ptr octree);

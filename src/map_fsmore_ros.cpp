@@ -61,11 +61,8 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     }
 
     sensor_msgs::PointCloud2 cloud;
-    pcl::PointCloud<pcl::PointXYZI> pc = mapper.getMapPointCloud();
-    //pcl::PointCloud<pcl::PointXYZI> pc = mapper.getObjectPointCloud();
 
-    pcl::toROSMsg(pc,cloud);
-    //pcl::toROSMsg(mapper.getMapPointCloud<pcl::PointCloud<pcl::PointXYZI> >(),cloud);
+    pcl::toROSMsg(mapper.getMapPointCloud(),cloud);
     cloud.header.stamp=ros::Time::now();
     cloud.header.frame_id="world";
     pub_map.publish(cloud);
