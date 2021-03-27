@@ -7,7 +7,19 @@ MapFsmore::MapFsmore()
     oct_obj = OctType::Ptr(new OctType(0.01));
 
     oct_map->setInputCloud(pc_map);
+    oct_map->addPointsFromInputCloud();
+
     oct_obj->setInputCloud(pc_obj);
+    oct_obj->addPointsFromInputCloud();
+
+}
+
+std::size_t MapFsmore::KeyHasher(MapKey key_arg){
+    std::size_t seed = 0;
+    boost::hash_combine(seed, key_arg.x);
+    boost::hash_combine(seed, key_arg.y);
+    boost::hash_combine(seed, key_arg.z);
+    return seed;
 
 }
 
@@ -43,34 +55,49 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
     Line l_m=l_o.Transform(T);
 
     PCType::VectorType ray;
-    oct_map->getApproxIntersectedVoxelCentersBySegment(l_m.p1,l_m.p2,ray);
+    Eigen::Vector3f dist=(l_m.p2-l_m.p1);
+    for (int i=0;i<100;i++){
+        PType p;
+        Eigen::Vector3f p2=l_m.p1+dist*((float) i/100);
+        p.x=p2.x();
+        p.y=p2.y();
+        p.z=p2.z();
+        ray.push_back(p);
+    }
+    //oct_map->getIntersectedVoxelCenters(l_m.p1,l_m.p2,ray);
 
     lines_map.push_back(l_m);
 
 
     for (PCType::iterator it=ray.begin();it!=ray.end();it++){
-        //size_t hash=hasher(*it);
-        pcl::octree::OctreeKey key;
-
-
-        oct_map->genOctreeKeyforPoint(*it,key);
+        MapKey key;
         Voxel *v;
-        if(map_map.find(key)==map_map.end()){
-            v=new Voxel(oct_map,key);
+
+        if(!oct_map->isVoxelOccupiedAtPoint(*it) || map_map.find(KeyHasher(key))==map_map.end()){
             PType p= *it;
             p.intensity=1.0f/ray.size();
             oct_map->addPointToCloud(p,pc_map);
-            map_map.insert(std::pair<pcl::octree::OctreeKey,Voxel>(key,*v));
+            key=oct_map->GetKeyAtPoint(*it);
+            v=new Voxel(oct_map,KeyHasher(key));
+            map_map.insert(std::pair<size_t,Voxel>(KeyHasher(key),*v));
+
+            printf("(%.3f %.3f %.3f) Adding key: %d %d %d|%d\n",it->x,it->y,it->z,key.x,key.y,key.z,KeyHasher(key));
         }
         else{
-            v=&(map_map.at(key));
+            //oct_map->findLeafAtPoint(*it)->
+            key=oct_map->GetKeyAtPoint(*it);
+            printf("(%.3f %.3f %.3f) Looking for key: %d %d %d|%d\n",it->x,it->y,it->z,key.x,key.y,key.z, KeyHasher(key));
+            //if(map_map.find(KeyHasher(key))!=map_map.end()){
+                v=&(map_map.at(KeyHasher(key)));
+            //}
         }
+
         v->intersecting.push_back(&lines_map.back());
-        std::vector<int> points_inside;
-        oct_obj->voxelSearch(v->TransformCoord(T.inverse()),points_inside);
+        //std::vector<int> points_inside;
+        //oct_obj->voxelSearch(v->TransformCoord(T.inverse()),points_inside);
 
 
-        v->likelihood=oct_obj->getInputCloud()->at(points_inside[0]).intensity*v->likelihood;
+        //v->likelihood=oct_obj->getInputCloud()->at(points_inside[0]).intensity*v->likelihood;
     }
 
 
@@ -85,28 +112,22 @@ pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getPointCloud(OctType::Ptr octree){
     for(OctType::Iterator it = octree->leaf_depth_begin();it!=octree->leaf_depth_end();it++){
         pcl::PointXYZI p;
         pcl::octree::OctreeLeafNode<PType> n;
-        it.getLeafContainer().
-                n.getContainer().x;
 
-
-        p.x=it.getX();
-        p.y=it.getY();
-        p.z=it.getZ();
-        p.intensity=it->getOccupancy();
-        pc.push_back(p);
     }
     return(pc);
 }
 
 
-pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getMapPointCloud(){
-    pcl::PointCloud<pcl::PointXYZI>  pc;
-    pc=getPointCloud(oct_map);
-    return(pc);
+PCType MapFsmore::getMapPointCloud(){
+    //pcl::PointCloud<pcl::PointXYZI>  pc;
+    //pc=getPointCloud(oct_map);
+    //return(pc);
+    return(*pc_map);
 }
 
-pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getObjectPointCloud(){
-    pcl::PointCloud<pcl::PointXYZI>  pc;
-    pc=getPointCloud(oct_obj);
-    return(pc);
+PCType MapFsmore::getObjectPointCloud(){
+    //pcl::PointCloud<pcl::PointXYZI>  pc;
+    //pc=getPointCloud(oct_obj);
+    //return(pc);
+    return(*pc_obj);
 }
