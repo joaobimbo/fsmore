@@ -1,17 +1,23 @@
 #include <fsmore/map_fsmore_ros.h>
-#include <octomap_msgs/OctomapWithPose.h>
+
 
 // CONSTRUCTOR
 MapFsmoreROS::MapFsmoreROS(){
-    n=new ros::NodeHandle("~");
+    n=new ros::NodeHandle();
     force_sub = n->subscribe("/contact_force",10,&MapFsmoreROS::cb_contforce, this);
-    line_pub =n->advertise<visualization_msgs::Marker>("lines",2);
+    pub_line =n->advertise<visualization_msgs::Marker>("lines",2);
+    pub_map =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
 
     Initialize();
 }
 
 bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
+    n->param<std::string>("/object_file", mesh_filename, "mesh.stl");
+    LoadSTL(mesh_filename, mapper.pc_obj);
+    mapper.oct_obj->addPointsFromInputCloud();
+
+
     return(true);
 }
 
@@ -54,7 +60,16 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform));
     }
 
-    pcl::toROSMsg(mapper.getMapPointCloud());
+    sensor_msgs::PointCloud2 cloud;
+    pcl::PointCloud<pcl::PointXYZI> pc = mapper.getMapPointCloud();
+    //pcl::PointCloud<pcl::PointXYZI> pc = mapper.getObjectPointCloud();
+
+    pcl::toROSMsg(pc,cloud);
+    //pcl::toROSMsg(mapper.getMapPointCloud<pcl::PointCloud<pcl::PointXYZI> >(),cloud);
+    cloud.header.stamp=ros::Time::now();
+    cloud.header.frame_id="world";
+    pub_map.publish(cloud);
+
     //if(norm(w.wrench.force)<0.1){
     //    AddEmpty(gTw);
     // }
@@ -86,4 +101,48 @@ void MapFsmoreROS::AddToMarkerLines(Line l,visualization_msgs::Marker &m){
     m.points.push_back(p2);
 }
 
+void MapFsmoreROS::LoadSTL(std::string filename, PCType::Ptr tree){
+    printf("LOADING FILE %s\n",filename.c_str());
+    std::ifstream infile(filename);
+    std::string line;
+    int ii=0;
+    std::vector<float> n(3,0);
+    int j=0;
+    PType p2;
+
+    while (std::getline(infile, line))
+    {
+      line=line.substr(line.find_first_not_of(" ")); //remove trailing spaces
+      if(!line.compare(0,8,"    outer loop")) ii=1;
+      if(strncmp(line.c_str(),"facet normal",12)==0){
+        std::istringstream iss(line.substr(line.find_first_of(" ")+8));
+        n.clear();
+        std::copy(std::istream_iterator<float>(iss),
+                  std::istream_iterator<float>(),
+                  std::back_inserter(n));
+        j=0;
+        p2=PType();
+      }
+
+      if(strncmp(line.c_str(),"vertex",6)==0){
+        std::istringstream iss(line.substr(line.find_first_of(" ")));
+        std::vector<float> v;
+        std::copy(std::istream_iterator<float>(iss),
+                  std::istream_iterator<float>(),
+                  std::back_inserter(v));
+
+        p2.x+=v.at(0)/1000;
+        p2.y+=v.at(1)/1000;
+        p2.z+=v.at(2)/1000;
+        j++;
+        if(j==3){
+          p2.x/=3;
+          p2.y/=3;
+          p2.z/=3;
+          p2.intensity=1.0;
+          tree->push_back(p2);
+        }
+      }
+    }
+}
 

@@ -1,7 +1,14 @@
 #include <fsmore/map_fsmore.h>
 
-MapFsmore::MapFsmore(){
-    map = new octomap::OcTree(0.01);
+MapFsmore::MapFsmore()
+    : pc_obj(new PCType),
+      pc_map(new PCType){
+    oct_map = OctType::Ptr(new OctType(0.01));
+    oct_obj = OctType::Ptr(new OctType(0.01));
+
+    oct_map->setInputCloud(pc_map);
+    oct_obj->setInputCloud(pc_obj);
+
 }
 
 
@@ -33,31 +40,73 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
     Eigen::Vector3f p1_1,p1_2;
     float k;
     Line l_o=ForceToLine(F,M,p1_1,p1_2,k);
-    octomap::point3d p1(l_o.p1.x(),l_o.p1.y(),l_o.p1.z());
-    octomap::point3d p2(l_o.p2.x(),l_o.p2.y(),l_o.p2.z());
-    map->insertRay(p1,p2);
+    Line l_m=l_o.Transform(T);
+
+    PCType::VectorType ray;
+    oct_map->getApproxIntersectedVoxelCentersBySegment(l_m.p1,l_m.p2,ray);
+
+    lines_map.push_back(l_m);
+
+
+    for (PCType::iterator it=ray.begin();it!=ray.end();it++){
+        //size_t hash=hasher(*it);
+        pcl::octree::OctreeKey key;
+
+
+        oct_map->genOctreeKeyforPoint(*it,key);
+        Voxel *v;
+        if(map_map.find(key)==map_map.end()){
+            v=new Voxel(oct_map,key);
+            PType p= *it;
+            p.intensity=1.0f/ray.size();
+            oct_map->addPointToCloud(p,pc_map);
+            map_map.insert(std::pair<pcl::octree::OctreeKey,Voxel>(key,*v));
+        }
+        else{
+            v=&(map_map.at(key));
+        }
+        v->intersecting.push_back(&lines_map.back());
+        std::vector<int> points_inside;
+        oct_obj->voxelSearch(v->TransformCoord(T.inverse()),points_inside);
+
+
+        v->likelihood=oct_obj->getInputCloud()->at(points_inside[0]).intensity*v->likelihood;
+    }
+
+
+
 
     return(true);
 }
 
-template <class PType> std::vector<PType> MapFsmore::getPointCloud(octomap::OcTree *octree){
-    std::vector<PType> pc;
-    for(octomap::OcTree::iterator it = octree->begin();
-        it!=octree->end();it++){
-        PType p;
+pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getPointCloud(OctType::Ptr octree){
+    pcl::PointCloud<pcl::PointXYZI>  pc;
+
+    for(OctType::Iterator it = octree->leaf_depth_begin();it!=octree->leaf_depth_end();it++){
+        pcl::PointXYZI p;
+        pcl::octree::OctreeLeafNode<PType> n;
+        it.getLeafContainer().
+                n.getContainer().x;
+
+
         p.x=it.getX();
         p.y=it.getY();
         p.z=it.getZ();
+        p.intensity=it->getOccupancy();
         pc.push_back(p);
     }
     return(pc);
 }
 
 
-template <class PType> std::vector<PType> MapFsmore::getMapPointCloud(){
-  //DEBUG
-  std::vector<PType> pc;
-  pc=getPointCloud<PType>(map);
-  return(pc);
+pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getMapPointCloud(){
+    pcl::PointCloud<pcl::PointXYZI>  pc;
+    pc=getPointCloud(oct_map);
+    return(pc);
 }
 
+pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getObjectPointCloud(){
+    pcl::PointCloud<pcl::PointXYZI>  pc;
+    pc=getPointCloud(oct_obj);
+    return(pc);
+}

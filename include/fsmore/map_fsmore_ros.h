@@ -9,17 +9,20 @@
 #include <tf2_ros/transform_listener.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/octree/octree.h>
 
 class MapFsmoreROS{
 public:
     MapFsmore mapper;
     MapFsmoreROS();
+    void LoadSTL(std::string filename,PCType::Ptr tree);
 
 protected:
     bool Initialize();
     ros::NodeHandle *n;
     ros::Subscriber force_sub;
-    ros::Publisher line_pub;
+    ros::Publisher pub_line,pub_map;
+    std::string mesh_filename;
     void cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg);
     bool first_ft_cb=true;
     geometry_msgs::Wrench bias_ft;
@@ -29,6 +32,7 @@ protected:
     inline Eigen::Affine3f toEigen(geometry_msgs::Transform m);
     visualization_msgs::Marker setupLines(std::string frame_id);
     void AddToMarkerLines(Line l,visualization_msgs::Marker &m);
+
 
 };
 

@@ -13,13 +13,12 @@ find_package(catkin REQUIRED COMPONENTS
     cmake_modules
     roscpp
     tf2_ros
-    octomap_ros
-    octomap
     pcl_conversions
+    pcl_ros
     )
 find_package(Eigen3 REQUIRED)
-find_package(octomap REQUIRED)
 
+find_package(PCL REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -128,8 +127,7 @@ include_directories(
  include
  ${catkin_INCLUDE_DIRS}
  ${EIGEN3_INCLUDE_DIRS}
- ${OCTOMAP_INCLUDE_DIRS}
-)
+ )
 add_definitions(${EIGEN_DEFINITIONS})
 
 
@@ -151,7 +149,7 @@ add_definitions(${EIGEN_DEFINITIONS})
 
 add_executable(map_fsmore src/mapping_main.cpp src/map_fsmore_ros.cpp src/map_fsmore.cpp)
 add_dependencies(map_fsmore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(map_fsmore ${catkin_LIBRARIES} ${OCTOMAP_LIBRARIES} )
+target_link_libraries(map_fsmore ${catkin_LIBRARIES} )
 
 
 ## Rename C++ executable without prefix
