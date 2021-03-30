@@ -12,6 +12,7 @@ MapFsmore::MapFsmore()
     oct_obj->setInputCloud(pc_obj);
     oct_obj->addPointsFromInputCloud();
 
+
 }
 
 std::size_t MapFsmore::KeyHasher(MapKey key_arg){
@@ -56,9 +57,10 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
 
     PCType::VectorType ray;
     Eigen::Vector3f dist=(l_m.p2-l_m.p1);
-    for (int i=0;i<100;i++){
+    int n_points=(int) dist.norm()/line_res;
+    for (int i=0;i<n_points;i++){
         PType p;
-        Eigen::Vector3f p2=l_m.p1+dist*((float) i/100);
+        Eigen::Vector3f p2=l_m.p1+((float) i*line_res*l_m.dir.normalized());
         p.x=p2.x();
         p.y=p2.y();
         p.z=p2.z();
@@ -67,41 +69,51 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
     //oct_map->getIntersectedVoxelCenters(l_m.p1,l_m.p2,ray);
 
     lines_map.push_back(l_m);
+    lines_obj.push_back(l_o);
 
 
     for (PCType::iterator it=ray.begin();it!=ray.end();it++){
-        MapKey key;
-        Voxel *v;
+        MapKey key_map,key_obj;
+        Voxel *v_m,*v_o;
 
-        if(!oct_map->isVoxelOccupiedAtPoint(*it) || map_map.find(KeyHasher(key))==map_map.end()){
+        //Do Map things
+        if(!oct_map->isVoxelOccupiedAtPoint(*it) || map_map.find(KeyHasher(oct_map->GetKeyAtPoint(*it)))==map_map.end()){
             PType p= *it;
             p.intensity=1.0f/ray.size();
             oct_map->addPointToCloud(p,pc_map);
-            key=oct_map->GetKeyAtPoint(*it);
-            v=new Voxel(oct_map,KeyHasher(key));
-            map_map.insert(std::pair<size_t,Voxel>(KeyHasher(key),*v));
-
-            printf("(%.3f %.3f %.3f) Adding key: %d %d %d|%d\n",it->x,it->y,it->z,key.x,key.y,key.z,KeyHasher(key));
-        }
+            key_map=oct_map->GetKeyAtPoint(*it);
+            v_m=new Voxel(oct_map,p,KeyHasher(key_map));
+            map_map.insert(std::pair<size_t,Voxel>(KeyHasher(key_map),*v_m));
+}
         else{
             //oct_map->findLeafAtPoint(*it)->
-            key=oct_map->GetKeyAtPoint(*it);
-            printf("(%.3f %.3f %.3f) Looking for key: %d %d %d|%d\n",it->x,it->y,it->z,key.x,key.y,key.z, KeyHasher(key));
+            key_map=oct_map->GetKeyAtPoint(*it);
             //if(map_map.find(KeyHasher(key))!=map_map.end()){
-                v=&(map_map.at(KeyHasher(key)));
+            v_m=&(map_map.at(KeyHasher(key_map)));
             //}
         }
+        v_m->intersecting.push_back(&lines_map.back());
 
-        v->intersecting.push_back(&lines_map.back());
-        //std::vector<int> points_inside;
-        //oct_obj->voxelSearch(v->TransformCoord(T.inverse()),points_inside);
+        //Do object things
+        PType p_o = v_m->TransformCoord(T.inverse());
 
+        if(!oct_obj->isVoxelOccupiedAtPoint(p_o)){// ||  map_obj.find(KeyHasher(oct_obj->GetKeyAtPoint(p_o)))==map_obj.end()){
+           /* p_o.intensity=0.0;
+            oct_obj->addPointToCloud(p_o,pc_obj);
+            key_obj=oct_obj->GetKeyAtPoint(p_o);
+            v_o=new Voxel(oct_obj,p_o,KeyHasher(key_obj));
+            //v_o->likelihood=p_o.intensity;
+            map_obj.insert(std::pair<size_t,Voxel>(KeyHasher(key_obj),*v_o));*/
+        }
+        else{
+            key_obj=oct_obj->GetKeyAtPoint(p_o);
+            v_o=&(map_obj.at(KeyHasher(key_obj)));
+            //v_o->likelihood=std::max(v_o->likelihood,v_m->likelihood);
+            *(v_m->likelihood)=*std::max(v_o->likelihood,v_m->likelihood);
 
-        //v->likelihood=oct_obj->getInputCloud()->at(points_inside[0]).intensity*v->likelihood;
+            v_o->intersecting.push_back(&lines_obj.back());
+        }
     }
-
-
-
 
     return(true);
 }
