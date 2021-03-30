@@ -122,7 +122,6 @@ void MapFsmoreROS::AddPointsFromPC(PCType::Ptr in,OctType::Ptr tree_out, PCType:
         size_t key=mapper.KeyHasher(tree_out->GetKeyAtPoint(*it));
         Voxel v(tree_out,*it,key);
         map_out.insert(std::pair<size_t,Voxel>(key,v));
-
     }
 }
 

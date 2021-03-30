@@ -11,11 +11,14 @@
 #include <map>
 #include <memory>
 #include <boost/functional/hash.hpp>
+#include <pcl/filters/voxel_grid_label.h>
 
 typedef pcl::PointXYZINormal PType;
 typedef pcl::PointCloud<PType> PCType;
-typedef pcl::octree::OctreePointCloudSearch<PType> OctType;
+//typedef pcl::octree::OctreePointCloudSearch<PType> OctType;
 typedef pcl::octree::OctreeKey MapKey;
+typedef pcl::VoxelGrid<PType> OctType;
+
 
 class Voxel;
 class Line;
