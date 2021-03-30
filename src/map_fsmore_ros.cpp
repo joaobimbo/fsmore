@@ -6,18 +6,20 @@ MapFsmoreROS::MapFsmoreROS(){
     n=new ros::NodeHandle();
     force_sub = n->subscribe("/contact_force",10,&MapFsmoreROS::cb_contforce, this);
     pub_line =n->advertise<visualization_msgs::Marker>("lines",2);
-    pub_map =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
+    pub_map_pc =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
+    pub_obj_pc =n->advertise<sensor_msgs::PointCloud2>("obj_pc",2);
 
     Initialize();
 }
 
 bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
-    n->param<std::string>("/object_file", mesh_filename, "mesh.stl");
-    LoadSTL(mesh_filename, mapper.pc_obj);
-    mapper.oct_obj->addPointsFromInputCloud();
+    n->param<std::string>("/object_file", mesh_filename, "mesh.stl");    
 
+    PCType::Ptr stl_pc(new PCType);
 
+    LoadSTL(mesh_filename, stl_pc);
+    AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
 
@@ -65,7 +67,14 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     pcl::toROSMsg(mapper.getMapPointCloud(),cloud);
     cloud.header.stamp=ros::Time::now();
     cloud.header.frame_id="world";
-    pub_map.publish(cloud);
+    pub_map_pc.publish(cloud);
+
+    pcl::toROSMsg(mapper.getObjectPointCloud(),cloud);
+    cloud.header.stamp=ros::Time::now();
+    cloud.header.frame_id="graspedobject";
+    pub_obj_pc.publish(cloud);
+
+
 
     //if(norm(w.wrench.force)<0.1){
     //    AddEmpty(gTw);
@@ -97,6 +106,27 @@ void MapFsmoreROS::AddToMarkerLines(Line l,visualization_msgs::Marker &m){
     m.points.push_back(p1);
     m.points.push_back(p2);
 }
+
+
+void MapFsmoreROS::AddPointsFromPC(PCType::Ptr in,OctType::Ptr tree_out, PCType::Ptr cloud_out,std::map<size_t,Voxel> &map_out){
+    OctType aux(0.01);
+    aux.setInputCloud(in);
+    aux.addPointsFromInputCloud();
+    PCType::VectorType centres;
+    aux.getOccupiedVoxelCenters(centres);
+    tree_out->setInputCloud(cloud_out);
+
+    for(PCType::iterator it=centres.begin();it!=centres.end();it++){
+        it->intensity=1.0;
+        tree_out->addPointToCloud(*it,cloud_out);
+        size_t key=mapper.KeyHasher(tree_out->GetKeyAtPoint(*it));
+        Voxel v(tree_out,*it,key);
+        map_out.insert(std::pair<size_t,Voxel>(key,v));
+
+    }
+}
+
+
 
 void MapFsmoreROS::LoadSTL(std::string filename, PCType::Ptr tree){
     printf("LOADING FILE %s\n",filename.c_str());
@@ -137,7 +167,7 @@ void MapFsmoreROS::LoadSTL(std::string filename, PCType::Ptr tree){
           p2.y/=3;
           p2.z/=3;
           p2.intensity=1.0;
-          tree->push_back(p2);
+          tree->push_back(p2);          
         }
       }
     }

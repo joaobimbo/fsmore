@@ -21,7 +21,7 @@ protected:
     bool Initialize();
     ros::NodeHandle *n;
     ros::Subscriber force_sub;
-    ros::Publisher pub_line,pub_map;
+    ros::Publisher pub_line,pub_map_pc,pub_obj_pc;
     std::string mesh_filename;
     void cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg);
     bool first_ft_cb=true;
@@ -31,8 +31,8 @@ protected:
     inline Eigen::Vector3f toEigen(geometry_msgs::Vector3 in);
     inline Eigen::Affine3f toEigen(geometry_msgs::Transform m);
     visualization_msgs::Marker setupLines(std::string frame_id);
-    void AddToMarkerLines(Line l,visualization_msgs::Marker &m);
-
+    void AddToMarkerLines(Line l,visualization_msgs::Marker &m);    
+    void AddPointsFromPC(PCType::Ptr in, OctType::Ptr tree_out, PCType::Ptr cloud_out, std::map<size_t, Voxel> &map_out);
 
 };
 
