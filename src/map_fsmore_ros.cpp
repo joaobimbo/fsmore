@@ -16,7 +16,7 @@ bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
     n->param<std::string>("/object_file", mesh_filename, "mesh.stl");    
 
-    PCType::Ptr stl_pc(new PCType);
+    PCTypePtr stl_pc(new PCType);
 
     LoadSTL(mesh_filename, stl_pc);
     AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
@@ -108,26 +108,22 @@ void MapFsmoreROS::AddToMarkerLines(Line l,visualization_msgs::Marker &m){
 }
 
 
-void MapFsmoreROS::AddPointsFromPC(PCType::Ptr in,OctType::Ptr tree_out, PCType::Ptr cloud_out,std::map<size_t,Voxel> &map_out){
-    OctType aux(0.01);
-    aux.setInputCloud(in);
-    aux.addPointsFromInputCloud();
-    PCType::VectorType centres;
-    aux.getOccupiedVoxelCenters(centres);
-    tree_out->setInputCloud(cloud_out);
+void MapFsmoreROS::AddPointsFromPC(PCTypePtr in,OctTypePtr tree_out, PCTypePtr cloud_out,std::map<size_t,Voxel> &map_out){
 
-    for(PCType::iterator it=centres.begin();it!=centres.end();it++){
-        it->intensity=1.0;
-        tree_out->addPointToCloud(*it,cloud_out);
-        size_t key=mapper.KeyHasher(tree_out->GetKeyAtPoint(*it));
-        Voxel v(tree_out,*it,key);
-        map_out.insert(std::pair<size_t,Voxel>(key,v));
+    for(PCType::iterator it = in->begin();it!=in->end();it++){
+        size_t key = mapper.KeyHasher(tree_out->coordToKey(*it));
+        if(map_out.find(key)==map_out.end()){
+            cloud_out->push_back(*it);
+            Voxel v(tree_out,*it,key);
+            v.setLikelihood(100.0f);
+            map_out.insert(std::pair<size_t,Voxel>(key,v));
+        }
     }
 }
 
 
 
-void MapFsmoreROS::LoadSTL(std::string filename, PCType::Ptr tree){
+void MapFsmoreROS::LoadSTL(std::string filename, PCTypePtr tree){
     printf("LOADING FILE %s\n",filename.c_str());
     std::ifstream infile(filename);
     std::string line;
@@ -157,15 +153,15 @@ void MapFsmoreROS::LoadSTL(std::string filename, PCType::Ptr tree){
                   std::istream_iterator<float>(),
                   std::back_inserter(v));
 
-        p2.x+=v.at(0)/1000;
-        p2.y+=v.at(1)/1000;
-        p2.z+=v.at(2)/1000;
+        p2.x()+=v.at(0)/1000;
+        p2.y()+=v.at(1)/1000;
+        p2.z()+=v.at(2)/1000;
         j++;
         if(j==3){
-          p2.x/=3;
-          p2.y/=3;
-          p2.z/=3;
-          p2.intensity=1.0;
+          p2.x()/=3;
+          p2.y()/=3;
+          p2.z()/=3;
+          //p2.intensity=1.0;
           tree->push_back(p2);          
         }
       }
