@@ -109,18 +109,28 @@ void MapFsmoreROS::AddToMarkerLines(Line l,visualization_msgs::Marker &m){
 
 
 void MapFsmoreROS::AddPointsFromPC(PCType::Ptr in,OctType::Ptr tree_out, PCType::Ptr cloud_out,std::map<size_t,Voxel> &map_out){
-    OctType aux(0.01);
+    //OctType aux(0.01);
+    OctType aux;
     aux.setInputCloud(in);
-    aux.addPointsFromInputCloud();
-    PCType::VectorType centres;
-    aux.getOccupiedVoxelCenters(centres);
+    aux.setLeafSize(0.01f,0.01f,0.01f);
+    //aux.addPointsFromInputCloud();
+    //PCType::VectorType centres;
+    //aux.getOccupiedVoxelCenters(centres);
+    aux.filter(*cloud_out);
+    tree_out->setLeafSize(0.01f,0.01f,0.01f);
+    tree_out->setSaveLeafLayout(true);
     tree_out->setInputCloud(cloud_out);
+    tree_out->filter(*cloud_out);
 
-    for(PCType::iterator it=centres.begin();it!=centres.end();it++){
-        it->intensity=1.0;
-        tree_out->addPointToCloud(*it,cloud_out);
-        size_t key=mapper.KeyHasher(tree_out->GetKeyAtPoint(*it));
-        Voxel v(tree_out,*it,key);
+
+    for(PCType::iterator it = cloud_out->begin();it!=cloud_out->end();it++){
+        KeyType key_ijk = tree_out->getGridCoordinates(it->x,it->y,it->z);
+        PType p;
+        p=*it;
+        p.intensity=1.0f;
+        //cloud_out->push_back(p);
+        size_t key=mapper.KeyHasher(key_ijk);
+        Voxel v(tree_out,p,key);
         map_out.insert(std::pair<size_t,Voxel>(key,v));
     }
 }

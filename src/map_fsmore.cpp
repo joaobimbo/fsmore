@@ -3,23 +3,29 @@
 MapFsmore::MapFsmore()
     : pc_obj(new PCType),
       pc_map(new PCType){
-    oct_map = OctType::Ptr(new OctType(0.01));
-    oct_obj = OctType::Ptr(new OctType(0.01));
+    //oct_map = OctType::Ptr(new OctType(0.01));
+    //oct_obj = OctType::Ptr(new OctType(0.01));
+    oct_map = OctType::Ptr(new OctType());
+    oct_obj = OctType::Ptr(new OctType());
 
+    oct_map->setLeafSize(line_res,line_res,line_res);
     oct_map->setInputCloud(pc_map);
-    oct_map->addPointsFromInputCloud();
+    oct_map->setSaveLeafLayout(true);
+    //oct_map->addPointsFromInputCloud();
 
+    oct_obj->setLeafSize(line_res,line_res,line_res);
     oct_obj->setInputCloud(pc_obj);
-    oct_obj->addPointsFromInputCloud();
+    oct_obj->setSaveLeafLayout(true);
+    //oct_obj->addPointsFromInputCloud();
 
 
 }
 
-std::size_t MapFsmore::KeyHasher(MapKey key_arg){
+std::size_t MapFsmore::KeyHasher(KeyType key_arg){
     std::size_t seed = 0;
-    boost::hash_combine(seed, key_arg.x);
-    boost::hash_combine(seed, key_arg.y);
-    boost::hash_combine(seed, key_arg.z);
+    boost::hash_combine(seed, key_arg.x());
+    boost::hash_combine(seed, key_arg.y());
+    boost::hash_combine(seed, key_arg.z());
     return seed;
 
 }
@@ -72,22 +78,25 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
     lines_obj.push_back(l_o);
 
 
+
     for (PCType::iterator it=ray.begin();it!=ray.end();it++){
-        MapKey key_map,key_obj;
+        KeyType key_map,key_obj;
         Voxel *v_m,*v_o;
 
         //Do Map things
-        if(!oct_map->isVoxelOccupiedAtPoint(*it) || map_map.find(KeyHasher(oct_map->GetKeyAtPoint(*it)))==map_map.end()){
+        if(map_map.find(KeyHasher(oct_map->getGridCoordinates(it->x,it->y,it->z)))==map_map.end()){
             PType p= *it;
             p.intensity=1.0f/ray.size();
-            oct_map->addPointToCloud(p,pc_map);
-            key_map=oct_map->GetKeyAtPoint(*it);
+            pc_map->push_back(p);
+            //oct_map->filter(*pc_map);
+            //oct_map->addPointToCloud(p,pc_map);
+            key_map=oct_map->getGridCoordinates(it->x,it->y,it->z);
             v_m=new Voxel(oct_map,p,KeyHasher(key_map));
             map_map.insert(std::pair<size_t,Voxel>(KeyHasher(key_map),*v_m));
         }
         else{
             //oct_map->findLeafAtPoint(*it)->
-            key_map=oct_map->GetKeyAtPoint(*it);
+            key_map=oct_map->getGridCoordinates(it->x,it->y,it->z);
             //if(map_map.find(KeyHasher(key))!=map_map.end()){
             v_m=&(map_map.at(KeyHasher(key_map)));
             //}
@@ -96,8 +105,10 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
 
         //Do object things
         PType p_o = v_m->TransformCoord(T.inverse());
+        key_obj=oct_obj->getGridCoordinates(p_o.x,p_o.y,p_o.z);
 
-        if(!oct_obj->isVoxelOccupiedAtPoint(p_o)){// ||  map_obj.find(KeyHasher(oct_obj->GetKeyAtPoint(p_o)))==map_obj.end()){
+        if(map_obj.find(KeyHasher(key_obj))==map_obj.end()){
+        //if(!oct_obj->isVoxelOccupiedAtPoint(p_o)){// ||  map_obj.find(KeyHasher(oct_obj->GetKeyAtPoint(p_o)))==map_obj.end()){
             /* p_o.intensity=0.0;
             oct_obj->addPointToCloud(p_o,pc_obj);
             key_obj=oct_obj->GetKeyAtPoint(p_o);
@@ -106,7 +117,7 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
             map_obj.insert(std::pair<size_t,Voxel>(KeyHasher(key_obj),*v_o));*/
         }
         else{
-            std::vector<int> p_inside;
+           /* std::vector<int> p_inside;
             oct_obj->voxelSearch(p_o,p_inside);
             key_obj=oct_obj->GetKeyAtPoint(oct_obj->getInputCloud()->at(p_inside[0]));
             float dist=MAXFLOAT;
@@ -128,10 +139,11 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
             }
             printf("k: %zu %zu",KeyHasher(key_obj),p2->key);
 
-
-            //    v_o=&(map_obj.at(KeyHasher(key_obj)));
+*/
+            //key_obj=oct_obj->GetKeyAtPoint(oct_obj->getInputCloud()->at(p_inside[0]));
+            v_o=&(map_obj.at(KeyHasher(key_obj)));
             //v_o->likelihood=std::max(v_o->likelihood,v_m->likelihood);
-            //  *(v_m->likelihood)=*std::max(v_o->likelihood,v_m->likelihood);
+              *(v_m->likelihood)=*std::max(v_o->likelihood,v_m->likelihood);
 
             //v_o->intersecting.push_back(&lines_obj.back());
         }
@@ -140,14 +152,16 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
     return(true);
 }
 
-pcl::PointCloud<pcl::PointXYZI>  MapFsmore::getPointCloud(OctType::Ptr octree){
-    pcl::PointCloud<pcl::PointXYZI>  pc;
+    PCType MapFsmore::getPointCloud(OctType::Ptr octree){
+    PCType pc;
+    octree->filter(pc);
 
-    for(OctType::Iterator it = octree->leaf_depth_begin();it!=octree->leaf_depth_end();it++){
+    /*for(OctType::Iterator it = octree->leaf_depth_begin();it!=octree->leaf_depth_end();it++){
         pcl::PointXYZI p;
         pcl::octree::OctreeLeafNode<PType> n;
 
     }
+    */
     return(pc);
 }
 
