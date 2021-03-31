@@ -15,9 +15,10 @@ find_package(catkin REQUIRED COMPONENTS
     tf2_ros
     pcl_conversions
     pcl_ros
+    octomap_ros
     )
 find_package(Eigen3 REQUIRED)
-
+find_package(fcl REQUIRED)
 find_package(PCL REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -113,7 +114,7 @@ catkin_package(
     ${catkin_INCLUDE_DIRS}    
 #  ${OMPL_INCLUDE_DIRS}
 #  LIBRARIES fsmore
-  CATKIN_DEPENDS roscpp
+  CATKIN_DEPENDS roscpp octomap_ros
   DEPENDS Eigen
 )
 
@@ -127,9 +128,12 @@ include_directories(
  include
  ${catkin_INCLUDE_DIRS}
  ${EIGEN3_INCLUDE_DIRS}
+ ${OCTOMAP_INCLUDE_DIRS}
+ ${fcl_INCLUDE_DIRS}
  )
-add_definitions(${EIGEN_DEFINITIONS})
 
+add_definitions(${EIGEN_DEFINITIONS})
+link_libraries(${OCTOMAP_LIBRARIES}  ${OMPL_LIBRARY_DIRS} ${fcl_LIBRARY_DIRS})
 
 
 ## Declare a C++ library

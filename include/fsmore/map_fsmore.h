@@ -13,7 +13,7 @@
 #include <boost/functional/hash.hpp>
 #include <pcl/filters/voxel_grid.h>
 #include <octomap/OcTree.h>
-#include <fcl/octree.h>
+//#include <fcl/octree.h>
 
 //typedef pcl::PointXYZINormal PType;
 //typedef pcl::PointCloud<PType> PCType;
@@ -25,7 +25,8 @@ typedef octomap::OcTree OctType;
 typedef std::shared_ptr<octomap::OcTree> OctTypePtr;
 typedef octomap::point3d PType;
 typedef octomap::Pointcloud PCType;
-typedef octomap::key_type KeyType;
+typedef std::shared_ptr<octomap::Pointcloud> PCTypePtr;
+typedef octomap::OcTreeKey KeyType;
 
 class Voxel;
 class Line;
@@ -54,45 +55,35 @@ protected:
 class Voxel{
 public:
     Voxel(OctTypePtr tree, PType point_in, size_t key_in){
-        key=key_in;
+        //key=key_in;
         map=tree;
-        //point=point_in;
-        //std::vector<int> p_inside;
-        //=map->getCentroidIndex(point_in);
+        key=map->coordToKey(point_in);
 
-        KeyType t=map->getGridCoordinates(point_in.x,point_in.y,point_in.z);
-        int idx = map->getCentroidIndexAt(t);
+        KeyType key_p=map->coordToKey(point_in);
+        point = map->keyToCoord(key_p);
 
-        printf("C: %d\n",idx);
-
-        point= (PType*) &(map->getInputCloud()->at(map->getCentroidIndex(point_in)));
-
-
-        //map->voxelSearch(point_in,p_inside);
-        //point=(PType*) &(map->getInputCloud()->at(p_inside[0]));
-        //likelihood=&(map->getInputCloud()->at(p_inside[0]).intensity);
-        likelihood=(float*) &(point->intensity);
-        p=Eigen::Vector3f(point->x,point->y,point->z);
+        p=Eigen::Vector3f(point.x(),point.y(),point.z());
     }
     PType TransformCoord(Eigen::Affine3f T){
         Eigen::Vector3f p_out=T*p;
         PType p2;
-        p2.x=p_out.x();
-        p2.y=p_out.y();
-        p2.z=p_out.z();
+        p2.x()=p_out.x();
+        p2.y()=p_out.y();
+        p2.z()=p_out.z();
         return(p2);
-        //p2.getArray3fMap()=p_out;
-        //return( octomap::point3d(p_out.x(),p_out.y(),p_out.z()));
     }
     void setLikelihood(float in){
-        point->intensity=in;
+        map->setNodeValue(key,1/(1+exp(-in)));
+    }
+    float getLikelihood(){
+        return(map->search(key)->getOccupancy());
     }
 
     std::vector<Line*> intersecting;
     Eigen::Vector3f p;
     OctTypePtr map;
-    size_t key;
-    PType *point;
+    KeyType key;
+    PType point;
     float *likelihood;
 
 protected:
@@ -104,10 +95,10 @@ class MapFsmore{
 public:
     MapFsmore();
     bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T);
-    PCType getMapPointCloud();
-    PCType getObjectPointCloud();
-    OctType::Ptr oct_map,oct_obj;
-    PCType::Ptr pc_obj,pc_map;
+    pcl::PointCloud<pcl::PointXYZI> getMapPointCloud();
+    pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud();
+    OctTypePtr oct_map,oct_obj;
+    PCTypePtr pc_obj,pc_map;
     size_t KeyHasher(KeyType key_arg);
     std::map<size_t,Voxel> map_map,map_obj;
 protected:
@@ -117,7 +108,7 @@ protected:
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
-    PCType getPointCloud(OctType::Ptr octree);
+    pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree);
 
 
 };

@@ -15,7 +15,7 @@ class MapFsmoreROS{
 public:
     MapFsmore mapper;
     MapFsmoreROS();
-    void LoadSTL(std::string filename,PCType::Ptr tree);
+    void LoadSTL(std::string filename,PCTypePtr tree);
 
 protected:
     bool Initialize();
@@ -32,7 +32,7 @@ protected:
     inline Eigen::Affine3f toEigen(geometry_msgs::Transform m);
     visualization_msgs::Marker setupLines(std::string frame_id);
     void AddToMarkerLines(Line l,visualization_msgs::Marker &m);    
-    void AddPointsFromPC(PCType::Ptr in, OctType::Ptr tree_out, PCType::Ptr cloud_out, std::map<size_t, Voxel> &map_out);
+    void AddPointsFromPC(PCTypePtr in, OctTypePtr tree_out, PCTypePtr cloud_out, std::map<size_t, Voxel> &map_out);
 
 };
 
