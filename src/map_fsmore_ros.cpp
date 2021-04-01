@@ -59,7 +59,9 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     }
     if(MapTools::norm(w.wrench.force)>5.0){
         Eigen::Affine3f T;
-        mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform));
+        if(mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform))){
+
+        }
     }
 
     sensor_msgs::PointCloud2 cloud;
@@ -69,9 +71,12 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     cloud.header.frame_id="world";
     pub_map_pc.publish(cloud);
 
-    pcl::toROSMsg(mapper.getObjectPointCloud(),cloud);
+    //mapper.ComputeProbabilities();
+    mapper.CleanupLines();
+
+    pcl::toROSMsg(mapper.getMapPointCloud(),cloud);
     cloud.header.stamp=ros::Time::now();
-    cloud.header.frame_id="graspedobject";
+    cloud.header.frame_id="world";
     pub_obj_pc.publish(cloud);
 
 
@@ -115,7 +120,7 @@ void MapFsmoreROS::AddPointsFromPC(PCTypePtr in,OctTypePtr tree_out, PCTypePtr c
         if(map_out.find(key)==map_out.end()){
             cloud_out->push_back(*it);
             Voxel v(tree_out,*it,key);
-            v.setLikelihood(100.0f);
+            v.setLikelihood(0.99f);
             map_out.insert(std::pair<size_t,Voxel>(key,v));
         }
     }

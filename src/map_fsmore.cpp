@@ -58,6 +58,22 @@ Line MapFsmore::ForceToLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Vector3
     return(l);
 }
 
+bool MapFsmore::LineExists(std::vector<Line> lines,Line l_in){
+    for (size_t i=0;i<lines.size();i++){
+        float dp=l_in.InnerProd(lines.at(i));
+        if(dp>same_line_tol) {
+            Eigen::Vector3f dir2=lines.at(i).p2-l_in.p1;
+            Eigen::Vector3f dir2b=lines.at(i).p1-l_in.p1;
+            if(dir2b.norm()>dir2.norm()) dir2=dir2b; // find the farthest point to draw vector
+            if(fabs(l_in.dir.dot(dir2))>same_line_tol){
+                time(&lines.at(i).timestamp);
+                return(true);
+            }
+        }
+    }
+    return(false);
+}
+
 
 bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T){
     Eigen::Vector3f p1_1,p1_2;
@@ -84,8 +100,18 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
     //    }
     //    //oct_map->getIntersectedVoxelCenters(l_m.p1,l_m.p2,ray);
 
-    lines_map.push_back(l_m);
-    lines_obj.push_back(l_o);
+    //KeyType kk=oct_map->coordToKey(PType(0.2f,0.0f,0.2f));
+    //printf("KK: %d\n", KeyHasher(kk));
+
+
+    if(LineExists(lines_map,l_m)){
+        return(false);
+    }
+    else{
+        lines_map.push_back(l_m);
+        lines_obj.push_back(l_o);
+    }
+
 
 
     for (PCType::iterator it=ray.begin();it!=ray.end();it++){
@@ -98,43 +124,53 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
             PType p= *it;
             v_m=new Voxel(oct_map,p,KeyHasher(key_map));
             map_map.insert(std::pair<size_t,Voxel>(KeyHasher(key_map),*v_m));
-            v_m->setLikelihood(1/(float) ray.size());
+            v_m->setLikelihood(1.0f/(float) ray.size());
             //pc_map->push_back(p);
             //oct_map->addPointToCloud(p,pc_map);
         }
         else{
-
-
             //oct_map->findLeafAtPoint(*it)->
             //     key_map=oct_map->getGridCoordinates(it->x,it->y,it->z);
             //if(map_map.find(KeyHasher(key))!=map_map.end()){
-                v_m=&(map_map.at(KeyHasher(key_map)));
+            v_m=&(map_map.at(KeyHasher(key_map)));
             //}
         }
-           v_m->intersecting.push_back(&lines_map.back());
+
+        //std::shared_ptr<Line> p_lm(&lines_map.back());
+        v_m->intersecting.push_back(&lines_map.back());
+        lines_map.back().voxels.push_back(v_m);
+        //lines_map.back().voxels.push_back(v_m);
+
+
 
         //Do object things
-           PType p_o = v_m->TransformCoord(T.inverse());
-           key_obj=oct_map->coordToKey(p_o);
+        PType p_o = v_m->TransformCoord(T.inverse());
+        key_obj=oct_map->coordToKey(p_o);
 
-
-
-        float lkl=0.0;
         if(map_obj.find(KeyHasher(key_obj))==map_obj.end()){
             v_o=new Voxel(oct_obj,p_o,KeyHasher(key_obj));
         }
         else {
             v_o=&(map_obj.at(KeyHasher(key_obj)));
-            lkl=v_o->getLikelihood();
         }
+        //v_o->intersecting.push_back(&lines_obj.back());
+        //v_o->intersecting.push_back(std::make_shared<Line>(&lines_obj.back()));
+        //v_o->intersecting.push_back(std::make_shared<Line>(lines_obj[lines_obj.size()-1]));
 
-        //float r=(((float) rand()/(float) RAND_MAX)-0.5)*5;
-        //printf("B: %f %f\n",v_m->getLikelihood(),r);
-        //v_m->setLikelihood(v_m->getLikelihood()*lkl);
+        //std::shared_ptr<Line> p_lo(&lines_obj.back());
+        //v_o->intersecting.push_back(p_lo);
+        v_o->intersecting.push_back(&lines_obj.back());
 
-        v_m->setLikelihood(v_m->getLikelihood()*lkl);
 
-        //printf("C: %f\n",v_m->getLikelihood());
+
+        //float r=(((float) rand()/(float) RAND_MAX)-0.0)*1;
+
+
+        float lkl1=v_m->getLikelihood();
+        float lkl2=v_o->getLikelihood();
+        printf("B: %f %f %f %f\n", v_m->getLikelihood(),lkl1,lkl2,lkl1*lkl2);
+        v_m->setLikelihood(lkl1+0.1);
+        printf("C: %f\n",v_m->getLikelihood());
 
 
         //if(!oct_obj->isVoxelOccupiedAtPoint(p_o)){// ||  map_obj.find(KeyHasher(oct_obj->GetKeyAtPoint(p_o)))==map_obj.end()){
@@ -179,7 +215,80 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
         //        }
     }
 
+
+
     return(true);
+}
+
+void MapFsmore::NormalizeLine(Line l){
+    float tot=0.0f;
+    for (size_t i = 0; i < l.voxels.size(); ++i) {
+        tot+=l.voxels.at(i)->getLikelihood();
+    }
+    for (size_t i = 0; i < l.voxels.size(); ++i) {
+        l.voxels.at(i)->setLikelihood(l.voxels.at(i)->getLikelihood()/tot);
+    }
+}
+
+void MapFsmore::CleanupLines(){
+    time_t now;
+    time(&now);
+    for(size_t i=0;i<lines_map.size();i++){
+        if(difftime(now,lines_map.at(i).timestamp)>decay_time){
+            DeleteLine(oct_map,map_map,lines_map,i,true);
+            //DeleteLine(lines_obj,i);
+        }
+
+
+
+    }
+}
+
+void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vector<Line> &lines,size_t line_nr,bool keep_maxlik){
+    //delete voxels* from deleted line
+    //delete voxel from voxel_map
+    //delete line* from each voxel
+    //delete line from lines_map
+
+    Voxel* best_voxel = nullptr;
+    float max_lik=0;
+    for(size_t i=0;i<lines.at(line_nr).voxels.size();i++){
+        KeyType key=lines.at(line_nr).voxels.at(i)->key;
+        if(map.find(KeyHasher(key))!=map.end()){
+            Voxel v(map.find(KeyHasher(key))->second);
+            if(keep_maxlik && v.likelihood>=max_lik){
+                //best_voxel=new Voxel(map.find(KeyHasher(key))->second);
+                best_voxel=new Voxel(v);
+                //max_lik=map.find(KeyHasher(key))->second.likelihood;
+                max_lik=v.likelihood;
+            }
+            map.erase(KeyHasher(key));
+            oct->deleteNode(key);
+        }
+    }
+    if(keep_maxlik){
+        for (size_t i=0;i<best_voxel->intersecting.size();i++){
+            //if(&(lines.at(i))==best_voxel->intersecting.at(i)){
+            if(&(lines.at(line_nr))==best_voxel->intersecting.at(i)){
+                best_voxel->intersecting.erase(best_voxel->intersecting.begin()+i); //erase the reference in this voxel to this line
+            }
+        }
+        oct->setNodeValue(best_voxel->key,best_voxel->likelihood);
+        map.insert(std::pair<size_t,Voxel>(KeyHasher(best_voxel->key),*best_voxel));
+    }
+    lines.erase(lines.begin()+line_nr);
+    return;
+}
+
+
+
+void MapFsmore::ComputeProbabilities(){
+    for(size_t i=0;i<lines_map.size();i++){
+        NormalizeLine(lines_map.at(i));
+    }
+    // for(size_t i=0;i<lines_obj.size();i++){
+    //     NormalizeLine(lines_obj.at(i));
+    // }
 }
 
 pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
@@ -190,7 +299,7 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
         p.x=it.getX();
         p.y=it.getY();
         p.z=it.getZ();
-        p.intensity=it->getOccupancy();
+        p.intensity=it->getValue();// Occupancy();//getLogOdds();
         pc.push_back(p);
 
         //pcl::octree::OctreeLeafNode<PType> n;
