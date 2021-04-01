@@ -13,6 +13,9 @@
 #include <boost/functional/hash.hpp>
 #include <pcl/filters/voxel_grid.h>
 #include <octomap/OcTree.h>
+
+#include <time.h>
+
 //#include <fcl/octree.h>
 
 //typedef pcl::PointXYZINormal PType;
@@ -31,12 +34,20 @@ typedef octomap::OcTreeKey KeyType;
 class Voxel;
 class Line;
 
-class Line{
+class Line : public std::enable_shared_from_this<Line>{
 public:
+    Line(){
+
+    }
     Line(Eigen::Vector3f start, Eigen::Vector3f end){
         p1=start;
         p2=end;
         dir=(p2-p1).normalized();
+        time(&timestamp);
+    }
+    Line(const Line &other){
+       *this=other;
+       for(int i=0;i<other.voxels.size();i++) this->voxels.at(i)=(other.voxels.at(i));
     }
 
     Line Transform(Eigen::Affine3f T){
@@ -45,24 +56,27 @@ public:
         p2t=T*p2;
         return(Line(p1t,p2t));
     }
+    float InnerProd(Line in){
+        return(dir.dot(in.dir));
+    }
+
     Eigen::Vector3f p1,p2,dir;
     std::vector<float> lkl;
-    std::vector<std::shared_ptr<Voxel> > voxels;
+    std::vector<Voxel*> voxels;
+    time_t timestamp;
 
 protected:
 };
 
-class Voxel{
+class Voxel : public std::enable_shared_from_this<Voxel> {
 public:
     Voxel(OctTypePtr tree, PType point_in, size_t key_in){
         //key=key_in;
         map=tree;
         key=map->coordToKey(point_in);
-
-        KeyType key_p=map->coordToKey(point_in);
-        point = map->keyToCoord(key_p);
-
+        point = map->keyToCoord(key);
         p=Eigen::Vector3f(point.x(),point.y(),point.z());
+        likelihood=0.0f;
     }
     PType TransformCoord(Eigen::Affine3f T){
         Eigen::Vector3f p_out=T*p;
@@ -73,18 +87,35 @@ public:
         return(p2);
     }
     void setLikelihood(float in){
-        map->setNodeValue(key,1/(1+exp(-in)));
+        map->setNodeValue(key,log(in/(1-in)));        
+        OctType::NodeType *n=map->search(key);
+        n->setValue(in);
+        likelihood=in;
+        return;
     }
     float getLikelihood(){
-        return(map->search(key)->getOccupancy());
+        return(likelihood);
+        OctType::NodeType *n=map->search(key);
+        if(n!=nullptr) return(n->getOccupancy());//return(n->getLogOdds());
+        else return(0.5f);
+    }
+    bool LineExists(Line in){
+        float max_dotprod=0;
+        for (int i=0;i<intersecting.size();i++){
+            float mag_dprod=fabs(intersecting.at(i)->InnerProd(in));
+            if(mag_dprod > max_dotprod) max_dotprod=mag_dprod;
+        }
+        if(max_dotprod>0.95) return(true);
+        else return(false);
     }
 
+    //std::vector< std::shared_ptr<Line> > intersecting;
     std::vector<Line*> intersecting;
     Eigen::Vector3f p;
     OctTypePtr map;
     KeyType key;
     PType point;
-    float *likelihood;
+    float likelihood;
 
 protected:
 
@@ -101,14 +132,24 @@ public:
     PCTypePtr pc_obj,pc_map;
     size_t KeyHasher(KeyType key_arg);
     std::map<size_t,Voxel> map_map,map_obj;
+    void ComputeProbabilities();
+    void CleanupLines();
 protected:
     const float line_half_length=1.0f;
     const float line_res=0.01f;
+    double decay_time = 10.0;
+    const float same_line_tol=0.99;
     std::vector<Line> lines_map,lines_obj;
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
     pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree);
+    bool LineExists(std::vector<Line> lines, Line l_in);
+    void NormalizeLine(Line in);
+    void DeleteLine(OctTypePtr oct, std::map<size_t, Voxel> &map, std::vector<Line> &lines, size_t line_nr, bool keep_maxlik);
+
+
+
 
 
 };
