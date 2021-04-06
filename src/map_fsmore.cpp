@@ -157,7 +157,7 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
             v_o=new Voxel(oct_obj,p_o,key_obj);
             map_obj.insert(std::pair<size_t,Voxel>(key_obj,*v_o));
             v_o=&(map_obj.at(key_obj));
-            v_o->setLikelihood(0.0f/(float) ray.size());
+            v_o->setLikelihood(1.0f/((float) ray.size()*0.1));
         }
         else {
             v_o=&(map_obj.at(key_obj));
