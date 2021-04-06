@@ -19,8 +19,8 @@ bool MapFsmoreROS::Initialize(){
 
     PCTypePtr stl_pc(new PCType);
 
-    LoadSTL(mesh_filename, stl_pc);
-    AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
+    //LoadSTL(mesh_filename, stl_pc);
+    //AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
 
