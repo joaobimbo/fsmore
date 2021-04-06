@@ -15,6 +15,7 @@ MapFsmoreROS::MapFsmoreROS(){
 bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
     n->param<std::string>("/object_file", mesh_filename, "mesh.stl");    
+    n->param<double>("/decay_time", mapper.decay_time, 30.0);
 
     PCTypePtr stl_pc(new PCType);
 
@@ -64,6 +65,8 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         }
     }
 
+    mapper.CleanupLines();
+
     sensor_msgs::PointCloud2 cloud;
 
     pcl::toROSMsg(mapper.getMapPointCloud(),cloud);
@@ -71,12 +74,9 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     cloud.header.frame_id="world";
     pub_map_pc.publish(cloud);
 
-    //mapper.ComputeProbabilities();
-    mapper.CleanupLines();
-
-    pcl::toROSMsg(mapper.getMapPointCloud(),cloud);
+    pcl::toROSMsg(mapper.getObjectPointCloud(),cloud);
     cloud.header.stamp=ros::Time::now();
-    cloud.header.frame_id="world";
+    cloud.header.frame_id="graspedobject";
     pub_obj_pc.publish(cloud);
 
 

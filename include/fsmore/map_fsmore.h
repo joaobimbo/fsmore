@@ -61,7 +61,7 @@ public:
     }
 
     Eigen::Vector3f p1,p2,dir;
-    std::vector<float> lkl;
+    std::vector<float> prob_contact;
     std::vector<Voxel*> voxels;
     time_t timestamp;
 
@@ -116,7 +116,7 @@ public:
     KeyType key;
     PType point;
     float likelihood;
-
+    time_t timestamp;
 protected:
 
 };
@@ -134,23 +134,21 @@ public:
     std::map<size_t,Voxel> map_map,map_obj;
     void ComputeProbabilities();
     void CleanupLines();
+    double decay_time = 30.0;
 protected:
     const float line_half_length=1.0f;
     const float line_res=0.01f;
-    double decay_time = 10.0;
+
     const float same_line_tol=0.99;
     std::vector<Line> lines_map,lines_obj;
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
     pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree);
-    bool LineExists(std::vector<Line> lines, Line l_in);
+    bool LineExists(std::vector<Line> &lines, Line &l_in);
     void NormalizeLine(Line in);
     void DeleteLine(OctTypePtr oct, std::map<size_t, Voxel> &map, std::vector<Line> &lines, size_t line_nr, bool keep_maxlik);
-
-
-
-
+    void UpdateProbs(Line &line, OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth);
 
 };
 
