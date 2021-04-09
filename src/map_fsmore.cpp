@@ -10,6 +10,10 @@ MapFsmore::MapFsmore()
     oct_map = OctTypePtr(new OctType(line_res));
     oct_obj = OctTypePtr(new OctType(line_res));
 
+
+    lines_map.reserve(1000);
+    lines_obj.reserve(1000);
+
     //oct_map->setLeafSize(line_res,line_res,line_res);
     //oct_map->setInputCloud(pc_map);
     //oct_map->setSaveLeafLayout(true);
@@ -157,7 +161,7 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
             v_o=new Voxel(oct_obj,p_o,key_obj);
             map_obj.insert(std::pair<size_t,Voxel>(key_obj,*v_o));
             v_o=&(map_obj.at(key_obj));
-            v_o->setLikelihood(1.0f/((float) ray.size()*0.1));
+            v_o->setLikelihood(1.0f/((float) ray.size()));
         }
         else {
             v_o=&(map_obj.at(key_obj));
@@ -195,7 +199,8 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
         lines_obj.back().voxels.at(i)->setLikelihood(max_lik);
     }
 
-    UpdateProbs(lines_map.back(),oct_map,oct_obj,map_map,map_obj,T.inverse(),1);
+    UpdateProbs(&lines_map.back(),oct_map,oct_obj,map_map,map_obj,T.inverse(),1);
+    UpdateProbs(&lines_obj.back(),oct_obj,oct_map,map_obj,map_map,T,1);
 
 
 
@@ -204,19 +209,19 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
 
 
 
-void MapFsmore::UpdateProbs(Line &line,OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth){
+void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth){
 
-    float prod=0;
+    float prod=1.0;
     float sum=0;
-    for (size_t i=0;i<line.voxels.size();i++){
-        //  if(depth!=0){ //normalize intersecting lines
-        //      for(int j=0;j<line.voxels.at(i)->intersecting.size();j++){
-        //          if(line.voxels.at(i)->intersecting.at(j)->p1!=line.p1){ //but only other lines (not this)
-        //              UpdateProbs(*(line.voxels.at(i)->intersecting.at(j)),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
-        //          }
-        //      }
-        //  }
-        Eigen::Vector3f other_point=T*line.voxels.at(i)->p;
+    for (size_t i=0;i<line->voxels.size();i++){
+        if(depth!=0){ //normalize intersecting lines
+            for(int j=0;j<line->voxels.at(i)->intersecting.size();j++){
+                if(line->voxels.at(i)->intersecting.at(j)->p1!=line->p1){ //but only other lines (not this)
+                    UpdateProbs(line->voxels.at(i)->intersecting.at(j),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
+                }
+            }
+        }
+        Eigen::Vector3f other_point=T*line->voxels.at(i)->p;
         size_t other_key=KeyHasher(other_oct->coordToKey(other_point.x(),other_point.y(),other_point.z()));
         float other_prob=0;
         if(other_map.find(other_key)!=other_map.end()){
@@ -224,16 +229,16 @@ void MapFsmore::UpdateProbs(Line &line,OctTypePtr &oct, OctTypePtr &other_oct,  
         }
         else{
             ///TODO: Add voxel there instead
-            other_prob=1.0f/line.voxels.size();
+            other_prob=1.0f/line->voxels.size();
         }
-        //float prob=line.voxels.at(i)->likelihood*other_prob;
-        float prob=line.voxels.at(i)->likelihood;
+        //float prob=line->voxels.at(i)->likelihood*other_prob;
+        float prob=line->voxels.at(i)->likelihood;
         prod*=(1-prob);
         sum+=prob;
     }
-    for (size_t i=0;i<line.voxels.size();i++){
-        float likl1=line.voxels.at(i)->getLikelihood();
-        line.voxels.at(i)->setLikelihood(likl1/(1-prod));
+    for (size_t i=0;i<line->voxels.size();i++){
+        float likl1=line->voxels.at(i)->getLikelihood();
+        line->voxels.at(i)->setLikelihood(likl1/(1-prod));
     }
 }
 
@@ -285,8 +290,8 @@ void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vect
                 max_lik=v.likelihood;
             }
             if(v.likelihood<0.99f){
-                map.erase(KeyHasher(key));
-                oct->deleteNode(key);
+                //    map.erase(KeyHasher(key));
+                //    oct->deleteNode(key);
             }
         }
     }
@@ -319,13 +324,14 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
     pcl::PointCloud<pcl::PointXYZI> pc;
 
     for(OctType::iterator it = octree->begin();it!=octree->end();it++){
-        pcl::PointXYZI p;
-        p.x=it.getX();
-        p.y=it.getY();
-        p.z=it.getZ();
-        p.intensity=it->getValue();// Occupancy();//getLogOdds();
-        pc.push_back(p);
-
+        if(it->getValue()>0.5){
+            pcl::PointXYZI p;
+            p.x=it.getX();
+            p.y=it.getY();
+            p.z=it.getZ();
+            p.intensity=it->getValue();// Occupancy();//getLogOdds();
+            pc.push_back(p);
+        }
         //pcl::octree::OctreeLeafNode<PType> n;
 
     }
