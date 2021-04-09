@@ -65,7 +65,7 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         }
     }
 
-    mapper.CleanupLines();
+    //mapper.CleanupLines();
 
     sensor_msgs::PointCloud2 cloud;
 
