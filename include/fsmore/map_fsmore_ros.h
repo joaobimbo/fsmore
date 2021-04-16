@@ -1,6 +1,7 @@
 #ifndef MAP_FSMORE_ROS_H
 #define MAP_FSMORE_ROS_H
 #include <fsmore/map_fsmore.h>
+#include <fsmore/map_tools.h>
 #include <ros/ros.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -21,7 +22,7 @@ protected:
     bool Initialize();
     ros::NodeHandle *n;
     ros::Subscriber force_sub;
-    ros::Publisher pub_line,pub_map_pc,pub_obj_pc;
+    ros::Publisher pub_line,pub_map_pc,pub_obj_pc,pub_oct_map;
     std::string mesh_filename;
     void cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg);
     bool first_ft_cb=true;

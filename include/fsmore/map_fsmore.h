@@ -126,6 +126,7 @@ class MapFsmore{
 public:
     MapFsmore();
     bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T);
+    bool AddEmpty(Eigen::Affine3f T);
     pcl::PointCloud<pcl::PointXYZI> getMapPointCloud();
     pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud();
     OctTypePtr oct_map,oct_obj;
@@ -149,7 +150,7 @@ protected:
     void NormalizeLine(Line in);
     void DeleteLine(OctTypePtr oct, std::map<size_t, Voxel> &map, std::vector<Line> &lines, size_t line_nr, bool keep_maxlik);
     void UpdateProbs(Line *line, OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth);
-
+    void UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T);
 };
 
 #endif // MAP_FSMORE_H
