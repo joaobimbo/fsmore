@@ -1,5 +1,6 @@
 #include <fsmore/map_fsmore_ros.h>
-
+#include <octomap_msgs/Octomap.h>
+#include <octomap_msgs/conversions.h>
 
 // CONSTRUCTOR
 MapFsmoreROS::MapFsmoreROS(){
@@ -8,6 +9,7 @@ MapFsmoreROS::MapFsmoreROS(){
     pub_line =n->advertise<visualization_msgs::Marker>("lines",2);
     pub_map_pc =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
     pub_obj_pc =n->advertise<sensor_msgs::PointCloud2>("obj_pc",2);
+    pub_oct_map = n->advertise<octomap_msgs::Octomap>("oct_map",2);
 
     Initialize();
 }
@@ -59,11 +61,13 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         return;
     }
     if(MapTools::norm(w.wrench.force)>5.0){
-        Eigen::Affine3f T;
         if(mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform))){
 
         }
-    }
+    }    
+    if(MapTools::norm(w.wrench.force)<0.1){
+        mapper.AddEmpty(toEigen(gTw.transform));
+     }
 
     //mapper.CleanupLines();
 
@@ -79,11 +83,18 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     cloud.header.frame_id="graspedobject";
     pub_obj_pc.publish(cloud);
 
+    octomap_msgs::Octomap oct_map_msg;
+    mapper.oct_map->setOccupancyThres(0.5);
+    octomap_msgs::binaryMapToMsg(*(mapper.oct_map),oct_map_msg);
+    oct_map_msg.header.stamp=ros::Time::now();
+    oct_map_msg.header.frame_id="world";
 
 
-    //if(norm(w.wrench.force)<0.1){
-    //    AddEmpty(gTw);
-    // }
+    pub_oct_map.publish(oct_map_msg);
+
+
+
+
 }
 
 visualization_msgs::Marker MapFsmoreROS::setupLines(std::string frame_id){

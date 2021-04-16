@@ -208,6 +208,33 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T)
 }
 
 
+bool MapFsmore::AddEmpty(Eigen::Affine3f T){
+    if(map_map.size()>map_obj.size()){
+        UpdateFree(oct_obj,oct_map,map_obj,map_map,T);
+    }
+    else{
+        UpdateFree(oct_map,oct_obj,map_map,map_obj,T.inverse());
+    }
+    return(true);
+}
+
+void MapFsmore::UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T){
+    for (std::map<size_t,Voxel>::iterator it = map.begin();it!=map.end();it++){
+
+        PType p=it->second.TransformCoord(T);
+
+        std::map<size_t,Voxel>::iterator it2=other_map.find(KeyHasher(other_oct->coordToKey(p)));
+        if(it2!=other_map.end()){
+           float P1=it->second.getLikelihood();
+           float P2=it2->second.getLikelihood();
+           float prod=1-(P1*P2);
+           if(prod==0) prod=0.0000001;
+           it->second.setLikelihood((P1*(1-P2))/prod);
+           it2->second.setLikelihood((P2*(1-P1))/prod);
+        }
+    }
+
+}
 
 void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth){
 
