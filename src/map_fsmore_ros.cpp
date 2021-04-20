@@ -1,6 +1,7 @@
 #include <fsmore/map_fsmore_ros.h>
 #include <octomap_msgs/Octomap.h>
 #include <octomap_msgs/conversions.h>
+#include <octomap_msgs/GetOctomap.h>
 
 // CONSTRUCTOR
 MapFsmoreROS::MapFsmoreROS(){
@@ -10,6 +11,7 @@ MapFsmoreROS::MapFsmoreROS(){
     pub_map_pc =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
     pub_obj_pc =n->advertise<sensor_msgs::PointCloud2>("obj_pc",2);
     pub_oct_map = n->advertise<octomap_msgs::Octomap>("oct_map",2);
+    pub_oct_obj = n->advertise<octomap_msgs::Octomap>("oct_obj",2);
 
     Initialize();
 }
@@ -19,12 +21,32 @@ bool MapFsmoreROS::Initialize(){
     n->param<std::string>("/object_file", mesh_filename, "mesh.stl");    
     n->param<double>("/decay_time", mapper.decay_time, 30.0);
 
+    n->param<std::string>("world_frame",world_frame,"world");
+    n->param<std::string>("object_frame",object_frame,"object");
+
+    boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getmap_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_map) );
+    boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getobj_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_obj) );
+    get_map_octree = n->advertiseService("/get_oct_map", getmap_handle);
+    get_obj_octree = n->advertiseService("/get_oct_obj", getobj_handle);
+
+
     PCTypePtr stl_pc(new PCType);
 
     //LoadSTL(mesh_filename, stl_pc);
     //AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
+
+bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_msgs::GetOctomap::Response &res, OctTypePtr octo){
+    octomap_msgs::Octomap oct_map_msg;
+    mapper.oct_map->setOccupancyThres(0.5);
+    octomap_msgs::binaryMapToMsg(*(octo),oct_map_msg);
+    oct_map_msg.header.stamp=ros::Time::now();
+    oct_map_msg.header.frame_id=world_frame;
+    res.map=oct_map_msg;
+    return(true);
+}
+
 
 inline Eigen::Vector3f MapFsmoreROS::toEigen(geometry_msgs::Vector3 in){
     return(Eigen::Vector3f(static_cast<float>(in.x),static_cast<float>(in.y),static_cast<float>(in.z)));
@@ -53,7 +75,7 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     w.wrench.torque=MapTools::v_minus(w.wrench.torque,bias_ft.torque);
     geometry_msgs::TransformStamped gTw;
     try {
-        gTw=tfBuffer.lookupTransform("world", "graspedobject",ros::Time(0));
+        gTw=tfBuffer.lookupTransform(world_frame, object_frame,ros::Time(0));
     }
     catch (tf2::TransformException &ex) {
         ROS_WARN("%s",ex.what());
@@ -71,31 +93,33 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
 
     //mapper.CleanupLines();
 
-    sensor_msgs::PointCloud2 cloud;
+    PublishPointCloud(mapper.getMapPointCloud(),pub_map_pc,world_frame);
+    PublishPointCloud(mapper.getObjectPointCloud(),pub_obj_pc,object_frame);
 
-    pcl::toROSMsg(mapper.getMapPointCloud(),cloud);
-    cloud.header.stamp=ros::Time::now();
-    cloud.header.frame_id="world";
-    pub_map_pc.publish(cloud);
-
-    pcl::toROSMsg(mapper.getObjectPointCloud(),cloud);
-    cloud.header.stamp=ros::Time::now();
-    cloud.header.frame_id="graspedobject";
-    pub_obj_pc.publish(cloud);
-
-    octomap_msgs::Octomap oct_map_msg;
-    mapper.oct_map->setOccupancyThres(0.5);
-    octomap_msgs::binaryMapToMsg(*(mapper.oct_map),oct_map_msg);
-    oct_map_msg.header.stamp=ros::Time::now();
-    oct_map_msg.header.frame_id="world";
-
-
-    pub_oct_map.publish(oct_map_msg);
-
-
-
+    //PublishOctrees(mapper.oct_map,pub_oct_map,world_frame);
+    //PublishOctrees(mapper.oct_obj,pub_oct_obj,object_frame);
 
 }
+
+void MapFsmoreROS::PublishPointCloud(pcl::PointCloud<pcl::PointXYZI> pc,ros::Publisher pub,std::string frame){
+    sensor_msgs::PointCloud2 cloud;
+    pcl::toROSMsg(pc,cloud);
+    cloud.header.stamp=ros::Time::now();
+    cloud.header.frame_id=frame;
+    pub.publish(cloud);
+}
+
+
+void MapFsmoreROS::PublishOctrees(OctTypePtr octo,ros::Publisher pub,std::string frame){
+    octomap_msgs::Octomap oct_map_msg;
+    mapper.oct_map->setOccupancyThres(0.5);
+    octomap_msgs::binaryMapToMsg(*octo,oct_map_msg);
+
+    oct_map_msg.header.stamp=ros::Time::now();
+    oct_map_msg.header.frame_id=frame;
+    pub.publish(oct_map_msg);
+}
+
 
 visualization_msgs::Marker MapFsmoreROS::setupLines(std::string frame_id){
     visualization_msgs::Marker lines;
