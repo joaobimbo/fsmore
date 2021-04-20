@@ -11,6 +11,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/octree/octree.h>
+#include <octomap_msgs/GetOctomap.h>
 
 class MapFsmoreROS{
 public:
@@ -22,8 +23,10 @@ protected:
     bool Initialize();
     ros::NodeHandle *n;
     ros::Subscriber force_sub;
-    ros::Publisher pub_line,pub_map_pc,pub_obj_pc,pub_oct_map;
-    std::string mesh_filename;
+    ros::Publisher pub_line,pub_map_pc,pub_obj_pc,pub_oct_map,pub_oct_obj;
+    ros::ServiceServer get_map_octree,get_obj_octree;
+
+    std::string mesh_filename,world_frame,object_frame;
     void cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg);
     bool first_ft_cb=true;
     geometry_msgs::Wrench bias_ft;
@@ -34,6 +37,10 @@ protected:
     visualization_msgs::Marker setupLines(std::string frame_id);
     void AddToMarkerLines(Line l,visualization_msgs::Marker &m);    
     void AddPointsFromPC(PCTypePtr in, OctTypePtr tree_out, PCTypePtr cloud_out, std::map<size_t, Voxel> &map_out);
+    void PublishOctrees(OctTypePtr octo, ros::Publisher pub, std::string frame);
+    void PublishPointCloud(pcl::PointCloud<pcl::PointXYZI> pc,ros::Publisher pub,std::string frame);
+    bool getOctomap(octomap_msgs::GetOctomap::Request  &req, octomap_msgs::GetOctomap::Response &res, OctTypePtr plan);
+
 
 };
 

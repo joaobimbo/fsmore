@@ -228,7 +228,7 @@ void MapFsmore::UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<siz
            float P1=it->second.getLikelihood();
            float P2=it2->second.getLikelihood();
            float prod=1-(P1*P2);
-           if(prod==0) prod=0.0000001;
+           if(prod == 0.0f) prod=0.0000001f;
            it->second.setLikelihood((P1*(1-P2))/prod);
            it2->second.setLikelihood((P2*(1-P1))/prod);
         }
@@ -242,7 +242,7 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
     float sum=0;
     for (size_t i=0;i<line->voxels.size();i++){
         if(depth!=0){ //normalize intersecting lines
-            for(int j=0;j<line->voxels.at(i)->intersecting.size();j++){
+            for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
                 if(line->voxels.at(i)->intersecting.at(j)->p1!=line->p1){ //but only other lines (not this)
                     UpdateProbs(line->voxels.at(i)->intersecting.at(j),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
                 }
