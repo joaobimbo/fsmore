@@ -2,31 +2,101 @@
 //#include <fcl/octree.h>
 //#include <fcl/collision.h>
 
-PlanFsmore_2D::PlanFsmore_2D()
+PlanFsmore_2D::PlanFsmore_2D() :
+    bounds(2)
 {
 
 }
 
 void PlanFsmore_2D::setupPlanner(){
+    space=std::make_shared<ompl::base::SE2StateSpace>();
+    space->setBounds(bounds);
+    si=std::make_shared<ompl::base::SpaceInformation>(space);
+    pdef = std::make_shared<ompl::base::ProblemDefinition>(si);
+    boost::function<bool (const ompl::base::State*)> isStateValid_handle( boost::bind( &PlanFsmore_2D::isStateValid, this, _1 ) );
+    si->setStateValidityChecker(isStateValid_handle);
+
+}
+
+void PlanFsmore_2D::setStartAndGoal(geometry_msgs::Pose start_pose,geometry_msgs::Pose goal_pose){
+
+//    std::shared_ptr<ompl::base::ProblemDefinition> pdef(std::make_shared<ompl::base::ProblemDefinition>(si));
+    ompl::base::ScopedState<ompl::base::SE2StateSpace> start(space);
+    start->setXY(start_pose.position.x,start_pose.position.y);
+    start->setYaw(asin(2*start_pose.orientation.x*start_pose.orientation.y));
+
+    ompl::base::ScopedState<ompl::base::SE2StateSpace> goal(space);
+    goal->setXY(goal_pose.position.x,goal_pose.position.y);
+    start->setYaw(asin(2*goal_pose.orientation.x*goal_pose.orientation.y));
+
+    pdef->setStartAndGoalStates(start,goal);
+}
 
 
+void PlanFsmore_2D::setBounds(Eigen::Vector3f min, Eigen::Vector3f max){
+    std::cout << "min" << min << std::endl;
+    std::cout << "max" << max << std::endl;
+
+    bounds.setLow(0,static_cast<double>(min.x()));
+    bounds.setHigh(0,static_cast<double>(max.x()));
+    bounds.setLow(1,static_cast<double>(min.y()));
+    bounds.setHigh(1,static_cast<double>(max.y()));
+}
+
+bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
+    const ompl::base::SE2StateSpace::StateType *se2state = state->as<ompl::base::SE2StateSpace::StateType>();
+    printf("checking state: %f %f %f\n",se2state->getX(),se2state->getY(),se2state->getYaw());
+
+    return(true);
 }
 
 
 std::vector<geometry_msgs::Pose> PlanFsmore_2D::getPlan(geometry_msgs::Pose start,geometry_msgs::Pose goal){
+
     std::vector<geometry_msgs::Pose> plan;
-    plan.push_back(start);
-    plan.push_back(goal);
+    setStartAndGoal(start,goal);
+    std::shared_ptr<ompl::geometric::RRT> planner(std::make_shared<ompl::geometric::RRT>(si));
+    planner->setProblemDefinition(pdef);
 
+    try{
+      planner->checkValidity();
+    }
+    catch(std::exception e){
+      return plan;
+    }
+    printf("Planner2D: Starting to solve...\n");
 
+    ///These are things that are supposed to be obtained from parameters:
+    float plan_timeout = 10;
+    float planner_step_size = 0.05;
 
-    printf("Planner2D\n");
+    planner->setRange(planner_step_size);
+    planner->setup();
 
-
-    printf("Sizes: %d %d\n",oct_map->getNumLeafNodes(),oct_obj->getNumLeafNodes());
-
+    ompl::base::PlannerStatus solved = planner->ompl::base::Planner::solve(static_cast<double>(plan_timeout));
+    if (solved)
+    {
+        ompl::base::PathPtr path = pdef->getSolutionPath();
+        ompl::geometric::PathGeometric* path_geo = path->as<ompl::geometric::PathGeometric>();
+        for (size_t i=0;i<path_geo->getStateCount();i++){
+            ompl::base::SE2StateSpace::StateType* state = path_geo->getState(i)->as<ompl::base::SE2StateSpace::StateType>();
+            geometry_msgs::Pose pose = pose2Dto3D(state->getX(),state->getY(),start.position.z,state->getYaw());
+            plan.push_back(pose);
+        }
+    }
     return(plan);
 
+}
 
+geometry_msgs::Pose PlanFsmore_2D::pose2Dto3D(double x,double y,double z,double ang){
+    geometry_msgs::Pose pose;
+    pose.position.x=x;
+    pose.position.y=y;
+    pose.position.z=z;
 
+    pose.orientation.w=0;
+    pose.orientation.x=cos(ang/2);
+    pose.orientation.y=sin(ang/2);
+    pose.orientation.z=0;
+    return(pose);
 }

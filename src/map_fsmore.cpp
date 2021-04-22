@@ -240,6 +240,8 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
 
     float prod=1.0;
     float sum=0;
+    float prod2=1.0;
+    float sum2=0;
     for (size_t i=0;i<line->voxels.size();i++){
         if(depth!=0){ //normalize intersecting lines
             for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
@@ -252,20 +254,26 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         size_t other_key=KeyHasher(other_oct->coordToKey(other_point.x(),other_point.y(),other_point.z()));
         float other_prob=0;
         if(other_map.find(other_key)!=other_map.end()){
-            other_prob=other_map.at(other_key).likelihood;
+            other_prob=other_map.at(other_key).getLikelihood();
         }
         else{
             ///TODO: Add voxel there instead
             other_prob=1.0f/line->voxels.size();
         }
-        //float prob=line->voxels.at(i)->likelihood*other_prob;
-        float prob=line->voxels.at(i)->likelihood;
+
+        float prob=line->voxels.at(i)->getLikelihood();
+        //float prob2=line->voxels.at(i)->getLikelihood()*other_prob;
+        float prob2=(1-prob)*(1-other_prob);
+
         prod*=(1-prob);
+        prod2*=prob2;
+
         sum+=prob;
+        sum2+=prob2;
     }
     for (size_t i=0;i<line->voxels.size();i++){
         float likl1=line->voxels.at(i)->getLikelihood();
-        line->voxels.at(i)->setLikelihood(likl1/(1-prod));
+        line->voxels.at(i)->setLikelihood(likl1/(1-prod2));
     }
 }
 
@@ -351,7 +359,7 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
     pcl::PointCloud<pcl::PointXYZI> pc;
 
     for(OctType::iterator it = octree->begin();it!=octree->end();it++){
-        if(it->getValue()>0.5){
+        if(it->getValue()>0.3){
             pcl::PointXYZI p;
             p.x=it.getX();
             p.y=it.getY();

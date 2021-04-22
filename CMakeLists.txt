@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
     pcl_conversions
     pcl_ros
     octomap_ros
+    ompl
     )
 find_package(Eigen3 REQUIRED)
 find_package(fcl REQUIRED)
@@ -129,6 +130,7 @@ include_directories(
  ${catkin_INCLUDE_DIRS}
  ${EIGEN3_INCLUDE_DIRS}
  ${OCTOMAP_INCLUDE_DIRS}
+ ${OMPL_INCLUDE_DIRS}
  ${fcl_INCLUDE_DIRS}
  )
 
@@ -158,7 +160,7 @@ target_link_libraries(map_fsmore ${catkin_LIBRARIES} )
 
 add_executable(plan_fsmore2d src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_fsmore_2d.cpp)
 add_dependencies(plan_fsmore2d ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} )
+target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} ${OMPL_LIBRARIES})
 
 
 ## Rename C++ executable without prefix
