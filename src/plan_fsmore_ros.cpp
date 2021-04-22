@@ -3,10 +3,11 @@
 PlanFsmoreROS::PlanFsmoreROS()
 {
     n=new ros::NodeHandle();
-    PlanFsmore_2D planner2D;
-    planner = &planner2D;
+    //PlanFsmore_2D planner2D;
+    //planner = &planner2D;
+    planner = new PlanFsmore_2D();
 
-    boost::function<bool (nav_msgs::GetPlan::Request&,nav_msgs::GetPlan::Response&)> planPath_handle( boost::bind(&PlanFsmoreROS::planPath,this, _1,_2,&planner2D) );
+    boost::function<bool (nav_msgs::GetPlan::Request&,nav_msgs::GetPlan::Response&)> planPath_handle( boost::bind(&PlanFsmoreROS::planPath,this, _1,_2,planner) );
     plan_service = n->advertiseService("get_plan", planPath_handle);
     pub_plan_markers = n->advertise<visualization_msgs::MarkerArray>("plan_steps",1);
     //sub_oct_map = n->subscribe("/oct_map",2,&PlanFsmoreROS::cb_oct_map,this);
@@ -15,7 +16,10 @@ PlanFsmoreROS::PlanFsmoreROS()
     srv_oct_map = n->serviceClient<octomap_msgs::GetOctomap>("/get_oct_map",false);
     srv_oct_obj = n->serviceClient<octomap_msgs::GetOctomap>("/get_oct_obj",false);
 
+    n->param<std::string>("object_file", mesh_filename, "mesh.stl");
+
 }
+
 
 //void PlanFsmoreROS::cb_oct_map(const octomap_msgs::Octomap::ConstPtr& msg){
 //    octomap::AbstractOcTree* tree = octomap_msgs::msgToMap(*msg);
@@ -27,25 +31,49 @@ PlanFsmoreROS::PlanFsmoreROS()
 //    planner->oct_obj = dynamic_cast<octomap::OcTree*>(tree);
 //}
 
+void PlanFsmoreROS::initializePlanner(){
+    Eigen::Vector3f min,max;
+    n->param<float>("min_x", min.x(),-1);
+    n->param<float>("max_x", max.x(),1);
+    n->param<float>("min_y", min.y(),-1);
+    n->param<float>("max_y", max.y(),1);
+    n->param<float>("min_z", min.z(),-1);
+    n->param<float>("max_z", max.z(),1);
+    planner->setBounds(min,max);
+    planner->setupPlanner();
+
+    std::cout << "Amin" << min << std::endl;
+    std::cout << "Amax" << max << std::endl;
+
+
+    //nh.param<float>("planner_step_size", planner_step_size,0.05);
+    //nh.param<float>("sq_clearance", clearance,0.0001);
+    //nh.param<float>("min_intensity", min_intensity,5);
+    //nh.param<float>("plan_timeout", plan_timeout,10.0);
+
+
+}
+
 
 bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
-                             nav_msgs::GetPlan::Response &res, PlanFsmore* plan)
+                             nav_msgs::GetPlan::Response &res, PlanFsmore_2D* planner)
 {
 
     if(srv_oct_map.exists() && srv_oct_obj.exists()){
         octomap_msgs::GetOctomap srv1,srv2;
         srv_oct_map.call(srv1.request,srv1.response);
         srv_oct_obj.call(srv2.request,srv2.response);
-        ROS_WARN("Size: %d %d",srv1.response.map.data.size(),srv2.response.map.data.size());
+        ROS_WARN("Size: %zu %zu",srv1.response.map.data.size(),srv2.response.map.data.size());
         octomap::AbstractOcTree* tree;
         tree = octomap_msgs::msgToMap(srv1.response.map);
-        plan->setMapOctree(*(dynamic_cast<octomap::OcTree*>(tree)));
-
+        planner->setMapOctree(*(dynamic_cast<octomap::OcTree*>(tree)));
         tree = octomap_msgs::msgToMap(srv2.response.map);
-        plan->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree)));
+        planner->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree)));
     }
 
-    std::vector<geometry_msgs::Pose> poses=plan->getPlan(req.start.pose,req.goal.pose);
+    initializePlanner();
+
+    std::vector<geometry_msgs::Pose> poses=planner->getPlan(req.start.pose,req.goal.pose);
 
     if(poses.size()<2) {
         return(false);
