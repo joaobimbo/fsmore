@@ -16,11 +16,14 @@ find_package(catkin REQUIRED COMPONENTS
     pcl_conversions
     pcl_ros
     octomap_ros
+    octomap_msgs
     ompl
     )
 find_package(Eigen3 REQUIRED)
-find_package(fcl REQUIRED)
+find_package(FCL REQUIRED)
 find_package(PCL REQUIRED)
+find_package(CCD REQUIRED)
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -116,7 +119,7 @@ catkin_package(
 #  ${OMPL_INCLUDE_DIRS}
 #  LIBRARIES fsmore
   CATKIN_DEPENDS roscpp octomap_ros
-  DEPENDS Eigen
+  DEPENDS Eigen3
 )
 
 ###########
@@ -131,11 +134,12 @@ include_directories(
  ${EIGEN3_INCLUDE_DIRS}
  ${OCTOMAP_INCLUDE_DIRS}
  ${OMPL_INCLUDE_DIRS}
- ${fcl_INCLUDE_DIRS}
+ ${FCL_INCLUDE_DIRS}
+ ${CCD_INCLUDE_DIRS}
  )
 
 add_definitions(${EIGEN_DEFINITIONS})
-link_libraries(${OCTOMAP_LIBRARIES}  ${OMPL_LIBRARY_DIRS} ${fcl_LIBRARY_DIRS})
+link_libraries(${OCTOMAP_LIBRARIES}  ${OMPL_LIBRARY_DIRS} ${FCL_LIBRARY_DIRS})
 
 
 ## Declare a C++ library
@@ -160,7 +164,7 @@ target_link_libraries(map_fsmore ${catkin_LIBRARIES} )
 
 add_executable(plan_fsmore2d src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_fsmore_2d.cpp)
 add_dependencies(plan_fsmore2d ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} ${OMPL_LIBRARIES})
+target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} ${OMPL_LIBRARIES} ${FCL_LIBRARIES} ${CCD_LIBRARIES})
 
 
 ## Rename C++ executable without prefix
