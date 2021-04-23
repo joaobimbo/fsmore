@@ -21,6 +21,7 @@ protected:
     std::shared_ptr<ompl::base::ProblemDefinition> pdef;
     ompl::base::RealVectorBounds bounds;
     geometry_msgs::Pose pose2Dto3D(double x,double y,double z,double ang);
+    float height_z=0.2;
 
 };
 

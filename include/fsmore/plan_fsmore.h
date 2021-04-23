@@ -10,6 +10,9 @@
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/ProblemDefinition.h>
 
+#include <fcl/geometry/octree/octree.h>
+#include <fcl/narrowphase/collision.h>
+
 class PlanFsmore
 {
 public:
@@ -20,7 +23,8 @@ public:
     virtual bool isStateValid(const ompl::base::State *state) = 0;
     virtual void setStartAndGoal(geometry_msgs::Pose start,geometry_msgs::Pose goal) = 0;
 
-    OctType *oct_map,*oct_obj;
+    OctTypePtr oct_map,oct_obj;
+    fcl::OcTreef *col_map,*col_obj;
 
     void setMapOctree(octomap::OcTree in);
     void setObjOctree(octomap::OcTree in);
