@@ -88,16 +88,16 @@ public:
     }
     void setLikelihood(float in){
         map->setNodeValue(key,log(in/(1-in)));        
-        OctType::NodeType *n=map->search(key);
-        n->setValue(in);
+        //OctType::NodeType *n=map->search(key);
+        //n->setValue(in);
         likelihood=in;
         return;
     }
     float getLikelihood(){
         return(likelihood);
-        OctType::NodeType *n=map->search(key);
-        if(n!=nullptr) return(n->getOccupancy());//return(n->getLogOdds());
-        else return(0.5f);
+       // OctType::NodeType *n=map->search(key);
+       // if(n!=nullptr) return(n->getOccupancy());//return(n->getLogOdds());
+       // else return(0.5f);
     }
     bool LineExists(Line in){
         float max_dotprod=0;
@@ -125,7 +125,7 @@ protected:
 class MapFsmore{
 public:
     MapFsmore();
-    bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T);
+    bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T, Line &l_map, Line &l_obj);
     bool AddEmpty(Eigen::Affine3f T);
     pcl::PointCloud<pcl::PointXYZI> getMapPointCloud();
     pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud();
@@ -135,12 +135,12 @@ public:
     std::map<size_t,Voxel> map_map,map_obj;
     void ComputeProbabilities();
     void CleanupLines();
-    double decay_time = 30.0;
+    double decay_time = 60.0;
 protected:
     const float line_half_length=1.0f;
     const float line_res=0.01f;
 
-    const float same_line_tol=0.99;
+    const float same_line_tol=0.999;
     std::vector<Line> lines_map,lines_obj;
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);

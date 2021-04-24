@@ -80,11 +80,13 @@ bool MapFsmore::LineExists(std::vector<Line> &lines,Line &l_in){
 }
 
 
-bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T){
+bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T,Line &l_map, Line &l_obj){
     Eigen::Vector3f p1_1,p1_2;
     float k;
     Line l_o=ForceToLine(F,M,p1_1,p1_2,k);
     Line l_m=l_o.Transform(T);
+    l_map=l_m;
+    l_obj=l_o;
 
     std::vector<PType> ray;
     oct_obj->computeRay(PType(l_m.p1.x(), l_m.p1.y(), l_m.p1.z()),
@@ -337,7 +339,9 @@ void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vect
                 best_voxel->intersecting.erase(best_voxel->intersecting.begin()+i); //erase the reference in this voxel to this line
             }
         }
-        oct->setNodeValue(best_voxel->key,best_voxel->likelihood);
+        oct->setNodeValue(best_voxel->key,log(best_voxel->likelihood/(1-best_voxel->likelihood)));
+
+
         map.insert(std::pair<size_t,Voxel>(KeyHasher(best_voxel->key),*best_voxel));
     }
     lines.erase(lines.begin()+line_nr);
@@ -359,12 +363,12 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
     pcl::PointCloud<pcl::PointXYZI> pc;
 
     for(OctType::iterator it = octree->begin();it!=octree->end();it++){
-        if(it->getValue()>0.3){
+        if(it->getOccupancy()>0.50){
             pcl::PointXYZI p;
             p.x=it.getX();
             p.y=it.getY();
             p.z=it.getZ();
-            p.intensity=it->getValue();// Occupancy();//getLogOdds();
+            p.intensity=it->getOccupancy();//Value();// Occupancy();//getLogOdds();
             pc.push_back(p);
         }
         //pcl::octree::OctreeLeafNode<PType> n;

@@ -24,8 +24,8 @@ bool MapFsmoreROS::Initialize(){
     n->param<std::string>("world_frame",world_frame,"world");
     n->param<std::string>("object_frame",object_frame,"object");
 
-    boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getmap_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_map) );
-    boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getobj_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_obj) );
+    boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getmap_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_map,world_frame) );
+    boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getobj_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_obj,object_frame) );
     get_map_octree = n->advertiseService("/get_oct_map", getmap_handle);
     get_obj_octree = n->advertiseService("/get_oct_obj", getobj_handle);
 
@@ -37,13 +37,23 @@ bool MapFsmoreROS::Initialize(){
     return(true);
 }
 
-bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_msgs::GetOctomap::Response &res, OctTypePtr octo){
+bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_msgs::GetOctomap::Response &res, OctTypePtr octo,std::string frame){
     octomap_msgs::Octomap oct_map_msg;
-    mapper.oct_map->setOccupancyThres(0.5);
-    octomap_msgs::binaryMapToMsg(*(octo),oct_map_msg);
+    octo->setOccupancyThres(0.5);
+    octomap_msgs::fullMapToMsg(*(octo),oct_map_msg);
     oct_map_msg.header.stamp=ros::Time::now();
-    oct_map_msg.header.frame_id=world_frame;
+    oct_map_msg.header.frame_id=frame;
     res.map=oct_map_msg;
+
+//    octomap::AbstractOcTree* oct_test = octomap_msgs::msgToMap(oct_map_msg);
+//    OctType *tree = dynamic_cast<octomap::OcTree*>(oct_test);
+//    if(frame==world_frame){
+//        pub_oct_map.publish(oct_map_msg);
+//    }
+//    else{
+//        pub_oct_obj.publish(oct_map_msg);
+//    }
+
     return(true);
 }
 
@@ -83,9 +93,13 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         return;
     }
     if(MapTools::norm(w.wrench.force)>5.0){
-        if(mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform))){
-
+        Line l_map,l_obj;
+        visualization_msgs::Marker lm_m=setupLines(world_frame);
+        if(mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform),l_map,l_obj)){
+           lm_m.color.b=0.5;
         }
+        AddToMarkerLines(l_map,lm_m);
+        pub_line.publish(lm_m);
     }    
     if(MapTools::norm(w.wrench.force)<0.1){
         mapper.AddEmpty(toEigen(gTw.transform));
@@ -113,7 +127,7 @@ void MapFsmoreROS::PublishPointCloud(pcl::PointCloud<pcl::PointXYZI> pc,ros::Pub
 void MapFsmoreROS::PublishOctrees(OctTypePtr octo,ros::Publisher pub,std::string frame){
     octomap_msgs::Octomap oct_map_msg;
     mapper.oct_map->setOccupancyThres(0.5);
-    octomap_msgs::binaryMapToMsg(*octo,oct_map_msg);
+    octomap_msgs::fullMapToMsg(*octo,oct_map_msg);
 
     oct_map_msg.header.stamp=ros::Time::now();
     oct_map_msg.header.frame_id=frame;
@@ -124,9 +138,9 @@ void MapFsmoreROS::PublishOctrees(OctTypePtr octo,ros::Publisher pub,std::string
 visualization_msgs::Marker MapFsmoreROS::setupLines(std::string frame_id){
     visualization_msgs::Marker lines;
     lines.type = visualization_msgs::Marker::LINE_LIST;
-    lines.scale.x = 0.01;
+    lines.scale.x = 0.005;
     lines.pose.orientation.w=1.0;
-    lines.color.a = 1.0;
+    lines.color.a = 0.2;
     lines.points.resize(40);
 
     lines.header.frame_id=frame_id;

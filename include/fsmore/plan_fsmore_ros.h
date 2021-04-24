@@ -25,6 +25,10 @@ protected:
     std::string mesh_filename,world_frame;
     ros::Publisher pub_plan_markers;
 //    ros::Subscriber sub_oct_map,sub_oct_obj;
+    ros::Publisher pub_map;
+    ros::Publisher pub_obj;
+
+
     ros::ServiceClient srv_oct_map,srv_oct_obj;
 
     void initializePlanner();
