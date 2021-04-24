@@ -39,7 +39,7 @@ protected:
     void AddPointsFromPC(PCTypePtr in, OctTypePtr tree_out, PCTypePtr cloud_out, std::map<size_t, Voxel> &map_out);
     void PublishOctrees(OctTypePtr octo, ros::Publisher pub, std::string frame);
     void PublishPointCloud(pcl::PointCloud<pcl::PointXYZI> pc,ros::Publisher pub,std::string frame);
-    bool getOctomap(octomap_msgs::GetOctomap::Request  &req, octomap_msgs::GetOctomap::Response &res, OctTypePtr plan);
+    bool getOctomap(octomap_msgs::GetOctomap::Request  &req, octomap_msgs::GetOctomap::Response &res, OctTypePtr plan, std::string frame);
 
 
 };

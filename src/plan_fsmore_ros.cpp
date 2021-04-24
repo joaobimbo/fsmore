@@ -18,6 +18,10 @@ PlanFsmoreROS::PlanFsmoreROS()
 
     n->param<std::string>("object_file", mesh_filename, "mesh.stl");
 
+    pub_map = n->advertise<octomap_msgs::Octomap>("/oct_map_rec",1);
+    pub_obj = n->advertise<octomap_msgs::Octomap>("/oct_obj_rec",1);
+
+
 }
 
 
@@ -64,12 +68,44 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         srv_oct_map.call(srv1.request,srv1.response);
         srv_oct_obj.call(srv2.request,srv2.response);
         ROS_WARN("Size: %zu %zu",srv1.response.map.data.size(),srv2.response.map.data.size());
-        octomap::AbstractOcTree* tree;
-        tree = octomap_msgs::msgToMap(srv1.response.map);
-        planner->setMapOctree(*(dynamic_cast<octomap::OcTree*>(tree)));
-        tree = octomap_msgs::msgToMap(srv2.response.map);
-        planner->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree)));
+        octomap::AbstractOcTree *tree_map,*tree_obj;
+        tree_map = octomap_msgs::msgToMap(srv1.response.map);
+        planner->setMapOctree(*(dynamic_cast<octomap::OcTree*>(tree_map)));
+        tree_obj = octomap_msgs::msgToMap(srv2.response.map);
+        planner->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree_obj)));
+        pub_map.publish(srv1.response.map);
+        pub_obj.publish(srv2.response.map);
+
     }
+
+
+   ///ERASE Tiz
+//    octomap_msgs::Octomap oct_map_msg;
+//    planner->col_map->setOccupancyThres(0.75);
+//    octomap_msgs::binaryMapToMsg(*(planner->col_map->tree),oct_map_msg);
+
+//    for (auto it=planner->col_map->tree->begin_leafs();it!=planner->col_map->tree->end_leafs();it++){
+//        ROS_WARN_STREAM("MAP2: " << it.getX() << ","<< it.getY() << ","
+//                        << it.getZ() << ","<< it->getValue());
+//        if(it->getValue()>0.5)
+//            ROS_ERROR_STREAM("!!!MAP2: " << it.getX() << ","<< it.getY() << ","
+//                            << it.getZ() << ","<< it->getValue());
+
+//    }
+//    oct_map_msg.header.stamp=ros::Time::now();
+//    oct_map_msg.header.frame_id="world";
+//    pub_map.publish(oct_map_msg);
+
+
+
+//    octomap_msgs::fullMapToMsg(*(planner->col_obj->tree),oct_map_msg);
+//    oct_map_msg.header.stamp=ros::Time::now();
+//    oct_map_msg.header.frame_id="graspedobject";
+//    pub_obj.publish(oct_map_msg);
+
+
+
+
 
     initializePlanner();
 
@@ -110,7 +146,7 @@ void PlanFsmoreROS::publishMarkerArray(std::vector<geometry_msgs::Pose> poses) {
     for(size_t i=0;i<poses.size();i++){
         m.pose=poses.at(i);
         m.header.stamp=ros::Time::now();
-        m.lifetime=ros::Duration(10.0);
+        m.lifetime=ros::Duration(100.0);
         m.id=static_cast<int>(i);
         m.ns=std::to_string(i);
         float color = static_cast<float>(i)/static_cast<float>(poses.size());
