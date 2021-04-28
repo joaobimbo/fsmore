@@ -66,15 +66,16 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
     if(srv_oct_map.exists() && srv_oct_obj.exists()){
         octomap_msgs::GetOctomap srv1,srv2;
         srv_oct_map.call(srv1.request,srv1.response);
+        pub_map.publish(srv1.response.map);
         srv_oct_obj.call(srv2.request,srv2.response);
+        srv2.response.map.header.stamp=ros::Time::now();
+        pub_obj.publish(srv2.response.map);
         ROS_WARN("Size: %zu %zu",srv1.response.map.data.size(),srv2.response.map.data.size());
         octomap::AbstractOcTree *tree_map,*tree_obj;
         tree_map = octomap_msgs::msgToMap(srv1.response.map);
         planner->setMapOctree(*(dynamic_cast<octomap::OcTree*>(tree_map)));
         tree_obj = octomap_msgs::msgToMap(srv2.response.map);
         planner->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree_obj)));
-        pub_map.publish(srv1.response.map);
-        pub_obj.publish(srv2.response.map);
 
     }
 

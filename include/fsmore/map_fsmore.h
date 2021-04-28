@@ -89,7 +89,7 @@ public:
     void setLikelihood(float in){
         map->setNodeValue(key,log(in/(1-in)));        
         //OctType::NodeType *n=map->search(key);
-        //n->setValue(in);
+        //printf("%f %f %f %f\n",in,log(in/(1-in)),n->getValue(),map->getClampingThresMin());
         likelihood=in;
         return;
     }
@@ -140,7 +140,7 @@ protected:
     const float line_half_length=1.0f;
     const float line_res=0.01f;
 
-    const float same_line_tol=0.999;
+    const float same_line_tol=0.9999;
     std::vector<Line> lines_map,lines_obj;
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
