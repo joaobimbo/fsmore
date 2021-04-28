@@ -9,6 +9,8 @@ MapFsmore::MapFsmore()
     //oct_obj = OctType::Ptr(new OctType());
     oct_map = OctTypePtr(new OctType(line_res));
     oct_obj = OctTypePtr(new OctType(line_res));
+    oct_map->setClampingThresMin(0.001);
+    oct_obj->setClampingThresMin(0.001);
 
 
     lines_map.reserve(1000);
@@ -69,7 +71,7 @@ bool MapFsmore::LineExists(std::vector<Line> &lines,Line &l_in){
             Eigen::Vector3f dir2=lines.at(i).p2-l_in.p1;
             Eigen::Vector3f dir2b=lines.at(i).p1-l_in.p1;
             if(dir2b.norm()>dir2.norm()) dir2=dir2b; // find the farthest point to draw vector
-            if(fabs(l_in.dir.dot(dir2))>same_line_tol){
+            if(fabs(l_in.dir.dot(dir2.normalized()))>same_line_tol){
                 time(&lines.at(i).timestamp);
                 return(true);
             }
@@ -198,6 +200,11 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T,
         lines_map.back().prob_contact.at(i)/=tot_prob_line;
         float max_lik=std::max(lines_map.back().voxels.at(i)->getLikelihood(),lines_map.back().prob_contact.at(i));
         lines_map.back().voxels.at(i)->setLikelihood(max_lik);
+    }
+
+    for (size_t i=0;i<lines_obj.back().prob_contact.size();i++) {
+        lines_obj.back().prob_contact.at(i)/=tot_prob_line;
+        float max_lik=std::max(lines_obj.back().voxels.at(i)->getLikelihood(),lines_obj.back().prob_contact.at(i));
         lines_obj.back().voxels.at(i)->setLikelihood(max_lik);
     }
 

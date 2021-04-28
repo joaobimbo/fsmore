@@ -128,6 +128,7 @@ std::vector<geometry_msgs::Pose> PlanFsmore_2D::getPlan(geometry_msgs::Pose star
     planner->setup();
 
     ompl::base::PlannerStatus solved = planner->ompl::base::Planner::solve(static_cast<double>(plan_timeout));
+    printf("Solution: %s\n",solved.asString().c_str());
     if (solved)
     {
         ompl::base::PathPtr path = pdef->getSolutionPath();

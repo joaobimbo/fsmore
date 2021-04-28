@@ -18,7 +18,7 @@ MapFsmoreROS::MapFsmoreROS(){
 
 bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
-    n->param<std::string>("/object_file", mesh_filename, "mesh.stl");    
+    n->param<std::string>("/object_file", mesh_filename, "mesh.stl");
     n->param<double>("/decay_time", mapper.decay_time, 30.0);
 
     n->param<std::string>("world_frame",world_frame,"world");
@@ -32,8 +32,8 @@ bool MapFsmoreROS::Initialize(){
 
     PCTypePtr stl_pc(new PCType);
 
-    //LoadSTL(mesh_filename, stl_pc);
-    //AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
+    LoadSTL(mesh_filename, stl_pc);
+    AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
 
@@ -45,14 +45,14 @@ bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_ms
     oct_map_msg.header.frame_id=frame;
     res.map=oct_map_msg;
 
-//    octomap::AbstractOcTree* oct_test = octomap_msgs::msgToMap(oct_map_msg);
-//    OctType *tree = dynamic_cast<octomap::OcTree*>(oct_test);
-//    if(frame==world_frame){
-//        pub_oct_map.publish(oct_map_msg);
-//    }
-//    else{
-//        pub_oct_obj.publish(oct_map_msg);
-//    }
+    //    octomap::AbstractOcTree* oct_test = octomap_msgs::msgToMap(oct_map_msg);
+    //    OctType *tree = dynamic_cast<octomap::OcTree*>(oct_test);
+    //    if(frame==world_frame){
+    //        pub_oct_map.publish(oct_map_msg);
+    //    }
+    //    else{
+    //        pub_oct_obj.publish(oct_map_msg);
+    //    }
 
     return(true);
 }
@@ -100,10 +100,10 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         }
         AddToMarkerLines(l_map,lm_m);
         pub_line.publish(lm_m);
-    }    
+    }
     if(MapTools::norm(w.wrench.force)<0.1){
         mapper.AddEmpty(toEigen(gTw.transform));
-     }
+    }
 
     //mapper.CleanupLines();
 
@@ -188,37 +188,38 @@ void MapFsmoreROS::LoadSTL(std::string filename, PCTypePtr tree){
 
     while (std::getline(infile, line))
     {
-      line=line.substr(line.find_first_not_of(" ")); //remove trailing spaces
-      if(!line.compare(0,8,"    outer loop")) ii=1;
-      if(strncmp(line.c_str(),"facet normal",12)==0){
-        std::istringstream iss(line.substr(line.find_first_of(" ")+8));
-        n.clear();
-        std::copy(std::istream_iterator<float>(iss),
-                  std::istream_iterator<float>(),
-                  std::back_inserter(n));
-        j=0;
-        p2=PType();
-      }
-
-      if(strncmp(line.c_str(),"vertex",6)==0){
-        std::istringstream iss(line.substr(line.find_first_of(" ")));
-        std::vector<float> v;
-        std::copy(std::istream_iterator<float>(iss),
-                  std::istream_iterator<float>(),
-                  std::back_inserter(v));
-
-        p2.x()+=v.at(0)/1000;
-        p2.y()+=v.at(1)/1000;
-        p2.z()+=v.at(2)/1000;
-        j++;
-        if(j==3){
-          p2.x()/=3;
-          p2.y()/=3;
-          p2.z()/=3;
-          //p2.intensity=1.0;
-          tree->push_back(p2);          
+        line=line.substr(line.find_first_not_of(" ")); //remove trailing spaces
+        if(!line.compare(0,8,"    outer loop")) ii=1;
+        if(strncmp(line.c_str(),"facet normal",12)==0){
+            std::istringstream iss(line.substr(line.find_first_of(" ")+8));
+            n.clear();
+            std::copy(std::istream_iterator<float>(iss),
+                      std::istream_iterator<float>(),
+                      std::back_inserter(n));
+            j=0;
+            p2=PType();
         }
-      }
+
+        if(strncmp(line.c_str(),"vertex",6)==0){
+            std::istringstream iss(line.substr(line.find_first_of(" ")));
+            std::vector<float> v;
+            std::copy(std::istream_iterator<float>(iss),
+                      std::istream_iterator<float>(),
+                      std::back_inserter(v));
+
+            p2.x()+=v.at(0)/1000;
+            p2.y()+=v.at(1)/1000;
+            p2.z()+=v.at(2)/1000;
+            j++;
+            if(j==3){
+                p2.x()/=3;
+                p2.y()/=3;
+                p2.z()/=3;
+                //p2.intensity=1.0;
+                tree->push_back(p2);
+            }
+        }
+
     }
 }
 
