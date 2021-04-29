@@ -29,6 +29,16 @@ MapFsmore::MapFsmore()
 
 }
 
+void MapFsmore::resetMap(double resolution){
+    line_res=resolution;
+    oct_map = OctTypePtr(new OctType(line_res));
+    oct_obj = OctTypePtr(new OctType(line_res));
+    map_map.clear();
+    map_obj.clear();
+    lines_map.clear();
+    lines_obj.clear();
+}
+
 std::size_t MapFsmore::KeyHasher(KeyType key_arg){
     std::size_t seed = 0;
     //boost::hash_combine(seed, key_arg.x());

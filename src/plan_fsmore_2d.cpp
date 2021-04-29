@@ -30,22 +30,26 @@ void PlanFsmore_2D::setStartAndGoal(geometry_msgs::Pose start_pose,geometry_msgs
     pdef->setStartAndGoalStates(start,goal);
 }
 
+void PlanFsmore_2D::setPlannerOptions(double step_siz,double timeout,Eigen::Vector3d min_bound, Eigen::Vector3d max_bound){
+    step_size=step_siz;
+    plan_timeout=timeout;
+    setBounds(min_bound,max_bound);
+}
 
-void PlanFsmore_2D::setBounds(Eigen::Vector3f min, Eigen::Vector3f max){
-    std::cout << "min" << min << std::endl;
-    std::cout << "max" << max << std::endl;
+void PlanFsmore_2D::setBounds(Eigen::Vector3d min, Eigen::Vector3d max){
+    bounds.setLow(0,min.x());
+    bounds.setHigh(0,max.x());
+    bounds.setLow(1,min.y());
+    bounds.setHigh(1,max.y());
 
-    bounds.setLow(0,static_cast<double>(min.x()));
-    bounds.setHigh(0,static_cast<double>(max.x()));
-    bounds.setLow(1,static_cast<double>(min.y()));
-    bounds.setHigh(1,static_cast<double>(max.y()));
 }
 
 bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     const ompl::base::SE2StateSpace::StateType *se2state = state->as<ompl::base::SE2StateSpace::StateType>();
     //printf("checking state: %f %f %f\n",se2state->getX(),se2state->getY(),se2state->getYaw());
 
-    fcl::CollisionRequest<float> req;
+    ros::Time ts=ros::Time::now();
+    fcl::CollisionRequest<float> req;    
     req.enable_contact=true;
     req.num_max_contacts=10;
     fcl::CollisionResult<float> res;
@@ -55,13 +59,15 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     T2 =  Eigen::Translation3f(se2state->getX(),se2state->getY(),height_z) * Eigen::Quaternionf(0,sin(-ang/2),cos(-ang/2),0);
     bool ret=fcl::collide(col_map,T1,col_obj,T2,req,res);
 
+    ros::Duration d=ros::Time::now()-ts;
+    printf("NUM: %d %d - %fs\n",col_map->tree->getNumLeafNodes(),col_obj->tree->getNumLeafNodes(),d.toSec());
     size_t n_contacts=res.numContacts();
     //    printf("NC: %d\n",n_contacts);
     //    for (int i=0;i<n_contacts;i++){
     //        fcl::Contactf c=res.getContact(i);
     //        std::cout << "Contact " << i << ":\n" << c.pos << "\n";
     //    }
-    if(n_contacts>0) return false;
+    if(n_contacts>2) return(false);
     else return(true);
 
     bool whatever=false;
@@ -81,18 +87,20 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
 }
 
 
-std::vector<geometry_msgs::Pose> PlanFsmore_2D::getPlan(geometry_msgs::Pose start,geometry_msgs::Pose goal){
-
+ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geometry_msgs::Pose goal,geometry_msgs::PoseArray &solution,geometry_msgs::PoseArray &vertexes){
+    ompl::base::PlannerData data(si);
     std::vector<geometry_msgs::Pose> plan;
     setStartAndGoal(start,goal);
     std::shared_ptr<ompl::geometric::RRT> planner(std::make_shared<ompl::geometric::RRT>(si));
+    //plan_ptr=std::make_shared<ompl::base::Planner>(planner);
+
     planner->setProblemDefinition(pdef);
 
     try{
         planner->checkValidity();
     }
     catch(std::exception e){
-        return plan;
+        return ompl::base::PlannerStatus::INVALID_START;
     }
 
 
@@ -120,15 +128,13 @@ std::vector<geometry_msgs::Pose> PlanFsmore_2D::getPlan(geometry_msgs::Pose star
 
     printf("Planner2D: Starting to solve...\n");
 
-    ///These are things that are supposed to be obtained from parameters:
-    float plan_timeout = 10;
-    float planner_step_size = 0.05;
 
-    planner->setRange(planner_step_size);
+    planner->setRange(step_size);
+    planner->setGoalBias(0.01);
     planner->setup();
 
     ompl::base::PlannerStatus solved = planner->ompl::base::Planner::solve(static_cast<double>(plan_timeout));
-    printf("Solution: %s\n",solved.asString().c_str());
+    printf("Solution: %s\n",solved.asString().c_str());    
     if (solved)
     {
         ompl::base::PathPtr path = pdef->getSolutionPath();
@@ -136,10 +142,17 @@ std::vector<geometry_msgs::Pose> PlanFsmore_2D::getPlan(geometry_msgs::Pose star
         for (size_t i=0;i<path_geo->getStateCount();i++){
             ompl::base::SE2StateSpace::StateType* state = path_geo->getState(i)->as<ompl::base::SE2StateSpace::StateType>();
             geometry_msgs::Pose pose = pose2Dto3D(state->getX(),state->getY(),start.position.z,state->getYaw());
-            plan.push_back(pose);
+            solution.poses.push_back(pose);
         }
     }
-    return(plan);
+
+    planner->getPlannerData(data);
+    for (int i=0;i<data.numVertices();i++) {
+        const ompl::base::SE2StateSpace::StateType *state = data.getVertex(i).getState()->as<ompl::base::SE2StateSpace::StateType>();
+        vertexes.poses.push_back(pose2Dto3D(state->getX(),state->getY(),start.position.z,state->getYaw()));
+    }
+
+    return(solved);
 
 }
 

@@ -11,17 +11,20 @@ class PlanFsmore_2D : public PlanFsmore
 public:
     PlanFsmore_2D();
     void setupPlanner();
-    std::vector<geometry_msgs::Pose> getPlan(geometry_msgs::Pose start,geometry_msgs::Pose goal);
-    void setBounds(Eigen::Vector3f min, Eigen::Vector3f max);
+    //std::vector<geometry_msgs::Pose> getPlan(geometry_msgs::Pose start, geometry_msgs::Pose goal, ompl::base::PlannerData &data);
+    //std::vector<geometry_msgs::Pose> getPlan(geometry_msgs::Pose start, geometry_msgs::Pose goal);
+    ompl::base::PlannerStatus getPlan(geometry_msgs::Pose start, geometry_msgs::Pose goal, geometry_msgs::PoseArray &solution, geometry_msgs::PoseArray &vertexes);
+    void setBounds(Eigen::Vector3d min, Eigen::Vector3d max);
     bool isStateValid(const ompl::base::State *state);
     void setStartAndGoal(geometry_msgs::Pose start, geometry_msgs::Pose goal_pose);
+    void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound);
 
 protected:
     std::shared_ptr<ompl::base::SE2StateSpace> space;
-    std::shared_ptr<ompl::base::ProblemDefinition> pdef;
     ompl::base::RealVectorBounds bounds;
     geometry_msgs::Pose pose2Dto3D(double x,double y,double z,double ang);
     float height_z=0.2;
+    double step_size,plan_timeout;
 
 };
 

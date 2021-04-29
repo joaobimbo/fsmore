@@ -23,6 +23,11 @@ bool MapFsmoreROS::Initialize(){
 
     n->param<std::string>("world_frame",world_frame,"world");
     n->param<std::string>("object_frame",object_frame,"object");
+    double map_resolution;
+    n->param<double>("map_resolution", map_resolution, 0.01);
+    mapper.resetMap(map_resolution);
+
+
 
     boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getmap_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_map,world_frame) );
     boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getobj_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_obj,object_frame) );
@@ -40,7 +45,14 @@ bool MapFsmoreROS::Initialize(){
 bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_msgs::GetOctomap::Response &res, OctTypePtr octo,std::string frame){
     octomap_msgs::Octomap oct_map_msg;
     octo->setOccupancyThres(0.5);
-    octomap_msgs::fullMapToMsg(*(octo),oct_map_msg);
+    OctType octo_out(octo->getResolution());
+    for (OctType::leaf_iterator it=octo->begin_leafs();it!=octo->end_leafs();it++){
+        if(it->getOccupancy()>octo->getOccupancyThres()){
+            octo_out.setNodeValue(it.getX(),it.getY(),it.getZ(),it->getLogOdds());
+        }
+    }
+    octomap_msgs::fullMapToMsg(octo_out,oct_map_msg);
+    //octomap_msgs::binaryMapToMsg(*(octo),oct_map_msg);
     oct_map_msg.header.stamp=ros::Time::now();
     oct_map_msg.header.frame_id=frame;
     res.map=oct_map_msg;

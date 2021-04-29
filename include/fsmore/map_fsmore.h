@@ -136,9 +136,10 @@ public:
     void ComputeProbabilities();
     void CleanupLines();
     double decay_time = 60.0;
+    void resetMap(double resolution);
 protected:
     const float line_half_length=1.0f;
-    const float line_res=0.01f;
+    double line_res=0.01;
 
     const float same_line_tol=0.9999;
     std::vector<Line> lines_map,lines_obj;
