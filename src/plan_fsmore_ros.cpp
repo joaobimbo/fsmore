@@ -21,6 +21,7 @@ PlanFsmoreROS::PlanFsmoreROS()
     pub_map = n->advertise<octomap_msgs::Octomap>("/oct_map_rec",1);
     pub_obj = n->advertise<octomap_msgs::Octomap>("/oct_obj_rec",1);
 
+    pub_plan=n->advertise<geometry_msgs::PoseArray>("plan_tree",1);
 
 }
 
@@ -36,25 +37,21 @@ PlanFsmoreROS::PlanFsmoreROS()
 //}
 
 void PlanFsmoreROS::initializePlanner(){
-    Eigen::Vector3f min,max;
-    n->param<float>("min_x", min.x(),-1);
-    n->param<float>("max_x", max.x(),1);
-    n->param<float>("min_y", min.y(),-1);
-    n->param<float>("max_y", max.y(),1);
-    n->param<float>("min_z", min.z(),-1);
-    n->param<float>("max_z", max.z(),1);
-    planner->setBounds(min,max);
+    Eigen::Vector3d min,max;
+    double step_size,plan_timeout;
+    n->param<double>("min_x", min.x(),-1);
+    n->param<double>("max_x", max.x(),1);
+    n->param<double>("min_y", min.y(),-1);
+    n->param<double>("max_y", max.y(),1);
+    n->param<double>("min_z", min.z(),-1);
+    n->param<double>("max_z", max.z(),1);
+    n->param<double>("planner_step_size", step_size,0.05);
+    n->param<double>("plan_timeout", plan_timeout,10.0);
+    planner->setPlannerOptions(step_size,plan_timeout,min,max);
     planner->setupPlanner();
 
-    std::cout << "Amin" << min << std::endl;
-    std::cout << "Amax" << max << std::endl;
-
-
-    //nh.param<float>("planner_step_size", planner_step_size,0.05);
     //nh.param<float>("sq_clearance", clearance,0.0001);
     //nh.param<float>("min_intensity", min_intensity,5);
-    //nh.param<float>("plan_timeout", plan_timeout,10.0);
-
 
 }
 
@@ -108,19 +105,22 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
 
 
 
-    initializePlanner();
-
-    std::vector<geometry_msgs::Pose> poses=planner->getPlan(req.start.pose,req.goal.pose);
-
-    if(poses.size()<2) {
+    initializePlanner();    
+    geometry_msgs::PoseArray pose_solutions,pose_vertexes;
+    ompl::base::PlannerStatus success = planner->getPlan(req.start.pose,req.goal.pose,pose_solutions,pose_vertexes);
+    if(!success){
         return(false);
     }
 
-    publishMarkerArray(poses);
+    publishMarkerArray(pose_solutions.poses);
 
-    for (size_t i=0;i<poses.size();i++){
+    pose_vertexes.header.frame_id=world_frame;
+    pose_vertexes.header.stamp=ros::Time::now();
+    pub_plan.publish(pose_vertexes);
+
+    for (size_t i=0;i<pose_solutions.poses.size();i++){
         geometry_msgs::PoseStamped poseS;
-        poseS.pose=poses.at(i);
+        poseS.pose=pose_solutions.poses.at(i);
         res.plan.poses.push_back(poseS);
     }
 
@@ -147,7 +147,7 @@ void PlanFsmoreROS::publishMarkerArray(std::vector<geometry_msgs::Pose> poses) {
     for(size_t i=0;i<poses.size();i++){
         m.pose=poses.at(i);
         m.header.stamp=ros::Time::now();
-        m.lifetime=ros::Duration(100.0);
+        //m.lifetime=ros::Duration(100.0);
         m.id=static_cast<int>(i);
         m.ns=std::to_string(i);
         float color = static_cast<float>(i)/static_cast<float>(poses.size());

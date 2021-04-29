@@ -6,6 +6,7 @@
 #include <nav_msgs/GetPlan.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <geometry_msgs/PoseArray.h>
 #include <string>
 #include <boost/bind.hpp>
 #include <octomap_msgs/GetOctomap.h>
@@ -25,8 +26,7 @@ protected:
     std::string mesh_filename,world_frame;
     ros::Publisher pub_plan_markers;
 //    ros::Subscriber sub_oct_map,sub_oct_obj;
-    ros::Publisher pub_map;
-    ros::Publisher pub_obj;
+    ros::Publisher pub_map,pub_obj,pub_plan;
 
 
     ros::ServiceClient srv_oct_map,srv_oct_obj;
