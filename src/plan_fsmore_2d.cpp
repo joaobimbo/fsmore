@@ -13,6 +13,7 @@ void PlanFsmore_2D::setupPlanner(){
     pdef = std::make_shared<ompl::base::ProblemDefinition>(si);
     boost::function<bool (const ompl::base::State*)> isStateValid_handle( boost::bind( &PlanFsmore_2D::isStateValid, this, _1 ) );
     si->setStateValidityChecker(isStateValid_handle);
+    si->setup();
 
 }
 
@@ -48,20 +49,24 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     const ompl::base::SE2StateSpace::StateType *se2state = state->as<ompl::base::SE2StateSpace::StateType>();
     //printf("checking state: %f %f %f\n",se2state->getX(),se2state->getY(),se2state->getYaw());
 
-    ros::Time ts=ros::Time::now();
+  //  ros::Time ts=ros::Time::now();
     fcl::CollisionRequest<float> req;    
     req.enable_contact=true;
-    req.num_max_contacts=10;
+    req.num_max_contacts=3;
+
+    //printf("SIZE: %zu %zu\n",col_obj->tree->getNumLeafNodes(),col_map->tree->getNumLeafNodes());
+
     fcl::CollisionResult<float> res;
     fcl::Transform3f T1,T2;
     T1.setIdentity();
     float ang = static_cast<float>(se2state->getYaw());
     T2 =  Eigen::Translation3f(se2state->getX(),se2state->getY(),height_z) * Eigen::Quaternionf(0,sin(-ang/2),cos(-ang/2),0);
-    bool ret=fcl::collide(col_map,T1,col_obj,T2,req,res);
+    bool ret=fcl::collide(col_obj,T2,col_map,T1,req,res);
 
-    ros::Duration d=ros::Time::now()-ts;
-    printf("NUM: %d %d - %fs\n",col_map->tree->getNumLeafNodes(),col_obj->tree->getNumLeafNodes(),d.toSec());
-    size_t n_contacts=res.numContacts();
+
+    //ros::Duration d=ros::Time::now()-ts;
+    //printf("NUM: %d %d - %fs\n",col_map->tree->getNumLeafNodes(),col_obj->tree->getNumLeafNodes(),d.toSec());
+    size_t n_contacts=res.numContacts();    
     //    printf("NC: %d\n",n_contacts);
     //    for (int i=0;i<n_contacts;i++){
     //        fcl::Contactf c=res.getContact(i);
@@ -69,10 +74,10 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     //    }
     if(n_contacts>2) return(false);
     else return(true);
-
+/*
     bool whatever=false;
     if(n_contacts>0){
-        for (int i=0;i<n_contacts;i++){
+        for (size_t i=0;i<n_contacts;i++){
             fcl::Contactf c=res.getContact(i);
             std::cout << "Contact " << i << "\n";
             if(col_map->tree->search(c.pos.x(),c.pos.y(),c.pos.z())!=NULL){
@@ -84,6 +89,7 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
         if(whatever) return(false);
     }
     return(true);
+    */
 }
 
 
@@ -92,9 +98,11 @@ ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geom
     std::vector<geometry_msgs::Pose> plan;
     setStartAndGoal(start,goal);
     std::shared_ptr<ompl::geometric::RRT> planner(std::make_shared<ompl::geometric::RRT>(si));
+    //std::shared_ptr<ompl::geometric::KPIECE1> planner(std::make_shared<ompl::geometric::KPIECE1>(si));
     //plan_ptr=std::make_shared<ompl::base::Planner>(planner);
 
     planner->setProblemDefinition(pdef);
+
 
     try{
         planner->checkValidity();
@@ -103,7 +111,7 @@ ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geom
         return ompl::base::PlannerStatus::INVALID_START;
     }
 
-
+/*
     std::vector<std::array<float,6> > boxes =  col_map->toBoxes();
     printf("box1\n");
     for (int i=0;i<boxes.size();i+=1000){
@@ -124,13 +132,13 @@ ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geom
                boxes2.at(i).at(4),boxes2.at(i).at(5),
                col_obj->tree->search(boxes2.at(i).at(0),boxes2.at(i).at(1),boxes2.at(i).at(2))->getValue());
     }
-
+*/
 
     printf("Planner2D: Starting to solve...\n");
 
 
     planner->setRange(step_size);
-    planner->setGoalBias(0.01);
+    //planner->setGoalBias(0.001);
     planner->setup();
 
     ompl::base::PlannerStatus solved = planner->ompl::base::Planner::solve(static_cast<double>(plan_timeout));
@@ -147,7 +155,8 @@ ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geom
     }
 
     planner->getPlannerData(data);
-    for (int i=0;i<data.numVertices();i++) {
+
+    for (size_t i=0;i<data.numVertices();i++) {
         const ompl::base::SE2StateSpace::StateType *state = data.getVertex(i).getState()->as<ompl::base::SE2StateSpace::StateType>();
         vertexes.poses.push_back(pose2Dto3D(state->getX(),state->getY(),start.position.z,state->getYaw()));
     }

@@ -37,8 +37,8 @@ bool MapFsmoreROS::Initialize(){
 
     PCTypePtr stl_pc(new PCType);
 
-    LoadSTL(mesh_filename, stl_pc);
-    AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
+    //LoadSTL(mesh_filename, stl_pc);
+    //AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
 
@@ -114,10 +114,10 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         pub_line.publish(lm_m);
     }
     if(MapTools::norm(w.wrench.force)<0.1){
-        mapper.AddEmpty(toEigen(gTw.transform));
+        //mapper.AddEmpty(toEigen(gTw.transform));
     }
 
-    //mapper.CleanupLines();
+    mapper.CleanupLines();
 
     PublishPointCloud(mapper.getMapPointCloud(),pub_map_pc,world_frame);
     PublishPointCloud(mapper.getObjectPointCloud(),pub_obj_pc,object_frame);
