@@ -87,9 +87,10 @@ public:
         return(p2);
     }
     void setLikelihood(float in){
-        map->setNodeValue(key,log(in/(1-in)));        
+        if(in<0.0001) in=0.0001;
+        map->setNodeValue(key,std::log(in/(1-in)));
         //OctType::NodeType *n=map->search(key);
-        //printf("%f %f %f %f\n",in,log(in/(1-in)),n->getValue(),map->getClampingThresMin());
+        //printf("%f %f %f %f\n",in,log(in/(1-in)),n->getValue(),map->getClampingThresMin());        
         likelihood=in;
         return;
     }
@@ -138,16 +139,18 @@ public:
     double decay_time = 60.0;
     void resetMap(double resolution);
 protected:
-    const float line_half_length=1.0f;
+    const float line_half_length=0.01f;
     double line_res=0.01;
 
-    const float same_line_tol=0.9999;
+
+    const float same_line_tol=0.99;
     std::vector<Line> lines_map,lines_obj;
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
     pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree);
     bool LineExists(std::vector<Line> &lines, Line &l_in);
+    bool CompareLines(Line l1,Line l2);
     void NormalizeLine(Line in);
     void DeleteLine(OctTypePtr oct, std::map<size_t, Voxel> &map, std::vector<Line> &lines, size_t line_nr, bool keep_maxlik);
     void UpdateProbs(Line *line, OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth);

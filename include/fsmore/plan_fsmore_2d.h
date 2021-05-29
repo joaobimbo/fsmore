@@ -5,6 +5,8 @@
 #include <ompl/base/spaces/SE2StateSpace.h>
 #include <ompl/base/SpaceInformation.h>
 #include <ompl/geometric/planners/rrt/RRT.h>
+#include <ompl/geometric/planners/kpiece/KPIECE1.h>
+
 
 class PlanFsmore_2D : public PlanFsmore
 {
