@@ -138,7 +138,7 @@ void PlanFsmoreROS::publishMarkerArray(std::vector<geometry_msgs::Pose> poses) {
     m.scale.x=0.001;
     m.scale.y=0.001;
     m.scale.z=0.001;
-    m.color.a=0.5;
+    m.color.a=0.2f;
     m.color.b=1.0;
     n->param<std::string>("world_frame",world_frame,"world");
     m.header.frame_id=world_frame;

@@ -72,7 +72,7 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     //        fcl::Contactf c=res.getContact(i);
     //        std::cout << "Contact " << i << ":\n" << c.pos << "\n";
     //    }
-    if(n_contacts>2) return(false);
+    if(n_contacts>0) return(false);
     else return(true);
 /*
     bool whatever=false;
