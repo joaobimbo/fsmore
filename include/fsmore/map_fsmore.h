@@ -87,7 +87,7 @@ public:
         return(p2);
     }
     void setLikelihood(float in){
-        if(in<0.0001) in=0.0001;
+        if(in<0.00001) in=0.00001;
         map->setNodeValue(key,std::log(in/(1-in)));
         //OctType::NodeType *n=map->search(key);
         //printf("%f %f %f %f\n",in,log(in/(1-in)),n->getValue(),map->getClampingThresMin());        
@@ -102,8 +102,9 @@ public:
     }
     bool LineExists(Line in){
         float max_dotprod=0;
-        for (int i=0;i<intersecting.size();i++){
-            float mag_dprod=fabs(intersecting.at(i)->InnerProd(in));
+        //for (int i=0;i<intersecting.size();i++){
+        for (auto it = intersecting.begin();it!=intersecting.end();it++){
+            float mag_dprod=fabs((*it)->InnerProd(in));
             if(mag_dprod > max_dotprod) max_dotprod=mag_dprod;
         }
         if(max_dotprod>0.95) return(true);
@@ -111,7 +112,7 @@ public:
     }
 
     //std::vector< std::shared_ptr<Line> > intersecting;
-    std::vector<Line*> intersecting;
+    std::list<Line*> intersecting;
     Eigen::Vector3f p;
     OctTypePtr map;
     KeyType key;
@@ -128,8 +129,8 @@ public:
     MapFsmore();
     bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T, Line &l_map, Line &l_obj);
     bool AddEmpty(Eigen::Affine3f T);
-    pcl::PointCloud<pcl::PointXYZI> getMapPointCloud();
-    pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud();
+    pcl::PointCloud<pcl::PointXYZI> getMapPointCloud(float min_intensity);
+    pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud(float min_intensity);
     OctTypePtr oct_map,oct_obj;
     PCTypePtr pc_obj,pc_map;
     size_t KeyHasher(KeyType key_arg);
@@ -138,21 +139,24 @@ public:
     void CleanupLines();
     double decay_time = 60.0;
     void resetMap(double resolution);
-protected:
-    const float line_half_length=0.01f;
+    double line_half_length=1.0f;
     double line_res=0.01;
 
+protected:
 
-    const float same_line_tol=0.99;
-    std::vector<Line> lines_map,lines_obj;
+
+    const float same_line_tol=0.999f;
+    std::list<Line> lines_map,lines_obj;
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
-    pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree);
-    bool LineExists(std::vector<Line> &lines, Line &l_in);
+    pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree, float min_intensity);
+    //bool LineExists(std::vector<Line> &lines, Line &l_in);
+    bool LineExists(std::list<Line> &lines, Line &l_in);
     bool CompareLines(Line l1,Line l2);
     void NormalizeLine(Line in);
-    void DeleteLine(OctTypePtr oct, std::map<size_t, Voxel> &map, std::vector<Line> &lines, size_t line_nr, bool keep_maxlik);
+    //void DeleteLine(OctTypePtr oct, std::map<size_t, Voxel> &map, std::vector<Line> &lines, size_t line_nr, bool keep_maxlik);
+    void DeleteLine(OctTypePtr oct, std::map<size_t,Voxel> &map, std::list<Line> &lines, Line& line_nr);
     void UpdateProbs(Line *line, OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth);
     void UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T);
 };

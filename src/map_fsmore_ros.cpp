@@ -20,6 +20,7 @@ bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
     n->param<std::string>("/object_file", mesh_filename, "mesh.stl");
     n->param<double>("/decay_time", mapper.decay_time, 30.0);
+    n->param<double>("/line_length", mapper.line_half_length, 1.0);
 
     n->param<std::string>("world_frame",world_frame,"world");
     n->param<std::string>("object_frame",object_frame,"object");
@@ -27,13 +28,10 @@ bool MapFsmoreROS::Initialize(){
     n->param<double>("map_resolution", map_resolution, 0.01);
     mapper.resetMap(map_resolution);
 
-
-
     boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getmap_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_map,world_frame) );
     boost::function<bool (octomap_msgs::GetOctomap::Request&,octomap_msgs::GetOctomap::Response&)> getobj_handle( boost::bind(&MapFsmoreROS::getOctomap,this, _1,_2,mapper.oct_obj,object_frame) );
     get_map_octree = n->advertiseService("/get_oct_map", getmap_handle);
     get_obj_octree = n->advertiseService("/get_oct_obj", getobj_handle);
-
 
     PCTypePtr stl_pc(new PCType);
 
@@ -114,13 +112,15 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         pub_line.publish(lm_m);
     }
     if(MapTools::norm(w.wrench.force)<0.1){
-        //mapper.AddEmpty(toEigen(gTw.transform));
+        mapper.AddEmpty(toEigen(gTw.transform));
     }
 
     mapper.CleanupLines();
+    float min_intensity;
+    n->param<float>("/min_intensity", min_intensity, 0.50);
 
-    PublishPointCloud(mapper.getMapPointCloud(),pub_map_pc,world_frame);
-    PublishPointCloud(mapper.getObjectPointCloud(),pub_obj_pc,object_frame);
+    PublishPointCloud(mapper.getMapPointCloud(min_intensity),pub_map_pc,world_frame);
+    PublishPointCloud(mapper.getObjectPointCloud(min_intensity),pub_obj_pc,object_frame);
 
     //PublishOctrees(mapper.oct_map,pub_oct_map,world_frame);
     //PublishOctrees(mapper.oct_obj,pub_oct_obj,object_frame);

@@ -9,12 +9,12 @@ MapFsmore::MapFsmore()
     //oct_obj = OctType::Ptr(new OctType());
     oct_map = OctTypePtr(new OctType(line_res));
     oct_obj = OctTypePtr(new OctType(line_res));
-    oct_map->setClampingThresMin(0.00);
-    oct_obj->setClampingThresMin(0.00);
+    //oct_map->setClampingThresMin(0.00);
+    //oct_obj->setClampingThresMin(0.00);
 
 
-    lines_map.reserve(10000);
-    lines_obj.reserve(10000);
+    //lines_map.reserve(10000);
+    //lines_obj.reserve(10000);
 
     //oct_map->setLeafSize(line_res,line_res,line_res);
     //oct_map->setInputCloud(pc_map);
@@ -87,13 +87,19 @@ bool MapFsmore::CompareLines(Line l1,Line l2){
     return(false);
 }
 
-bool MapFsmore::LineExists(std::vector<Line> &lines,Line &l_in){
-    for (size_t i=0;i<lines.size();i++){
-        if(CompareLines(l_in,lines.at(i))){
-            time(&lines.at(i).timestamp);
-            return(true);
+bool MapFsmore::LineExists(std::list<Line> &lines,Line &l_in){
+    for (auto it=lines.begin();it!=lines.end();it++){
+        if(CompareLines(l_in,*it)){
+             time(&(it->timestamp));
+             return true;
         }
     }
+//    for (size_t i=0;i<lines.size();i++){
+//        if(CompareLines(l_in,lines.at(i))){
+//            time(&lines.at(i).timestamp);
+//            return(true);
+//        }
+//    }
     time(&l_in.timestamp);
     return(false);
 }
@@ -294,9 +300,14 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
 
     for (size_t i=0;i<line->voxels.size();i++){
         if(depth!=0){ //normalize intersecting lines
-            for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
-                if(line->voxels.at(i)->intersecting.at(j)->p1!=line->p1){ //but only other lines (not this)
-                    UpdateProbs(line->voxels.at(i)->intersecting.at(j),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
+            //for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
+            //    if(line->voxels.at(i)->intersecting.at(j)->p1!=line->p1){ //but only other lines (not this)
+            //        UpdateProbs(line->voxels.at(i)->intersecting.at(j),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
+            //    }
+            //}
+            for(auto it = line->voxels.at(i)->intersecting.begin();it!=line->voxels.at(i)->intersecting.end();it++){
+                if((*it)->p1!=line->p1){
+                   // UpdateProbs(*it,oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
                 }
             }
         }
@@ -306,7 +317,8 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         float other_prob=0;
 
         if(other_map.find(other_key)!=other_map.end()){
-            other_prob=std::max(other_map.at(other_key).getLikelihood(),1.0f/line->voxels.size());
+            //other_prob=std::max(other_map.at(other_key).getLikelihood(),1.0f/line->voxels.size());
+            other_prob=other_map.at(other_key).getLikelihood();
             paired=true;
         }
         else{
@@ -316,7 +328,8 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
             other_map.insert(std::pair<size_t,Voxel>(other_key,v_o));
         }
 
-        float prob=std::max(line->voxels.at(i)->getLikelihood(),1.0f/line->voxels.size());
+        //float prob=std::max(line->voxels.at(i)->getLikelihood(),1.0f/line->voxels.size());
+        float prob=line->voxels.at(i)->getLikelihood();
         //float prob2=line->voxels.at(i)->getLikelihood()*other_prob;
         float prob2=(1-(prob*other_prob));
 
@@ -335,10 +348,13 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         likl2=other_map.at(other_key).getLikelihood();
 
         float new_likl=(likl1)/(1-prod);
-        float new_likl2=(likl1*likl2)/(1-prod2);
+        float Pc=(likl1*likl2)/(1-prod2);
 
-        line->voxels.at(i)->setLikelihood(new_likl2);
-        other_map.at(other_key).setLikelihood(new_likl2);
+        line->voxels.at(i)->setLikelihood(Pc+(likl1*(1-likl2))*(1-Pc));
+        other_map.at(other_key).setLikelihood(Pc+(likl2*(1-likl1))*(1-Pc));
+        //line->voxels.at(i)->setLikelihood(Pc);
+        //other_map.at(other_key).setLikelihood(Pc);
+
 
     }
 }
@@ -357,19 +373,45 @@ void MapFsmore::NormalizeLine(Line l){
 void MapFsmore::CleanupLines(){
     time_t now;
     time(&now);
-    for(size_t i=0;i<lines_map.size();i++){
-        if(difftime(now,lines_map.at(i).timestamp)>decay_time){
-            DeleteLine(oct_map,map_map,lines_map,i,true);
+    for (auto it=lines_map.begin();it!=lines_map.end();it++){
+        if(difftime(now,(*it).timestamp)>decay_time){
+            DeleteLine(oct_map,map_map,lines_map,(*it));
+            lines_map.erase(it--);
         }
     }
-    for(size_t i=0;i<lines_obj.size();i++){
-        if(difftime(now,lines_obj.at(i).timestamp)>decay_time){
-            DeleteLine(oct_obj,map_obj,lines_obj,i,true);
+    for (auto it=lines_obj.begin();it!=lines_obj.end();it++){
+        if(difftime(now,(*it).timestamp)>decay_time){
+            DeleteLine(oct_obj,map_obj,lines_obj,(*it));
+            lines_obj.erase(it--);
+        }
+    }
+
+
+//    for(size_t i=0;i<lines_map.size();i++){
+//        if(difftime(now,lines_map.at(i).timestamp)>decay_time){
+//            DeleteLine(oct_map,map_map,lines_map,i,true);
+//        }
+//    }
+//    for(size_t i=0;i<lines_obj.size();i++){
+//        if(difftime(now,lines_obj.at(i).timestamp)>decay_time){
+//            DeleteLine(oct_obj,map_obj,lines_obj,i,true);
+//        }
+//    }
+}
+void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::list<Line> &lines,Line& line_nr){
+    //Delete the pointer to the intersecting line in each voxel
+    //Delete the line from the lines map
+    for (auto it=line_nr.voxels.begin();it!=line_nr.voxels.end();it++){
+        for (auto it2=(*it)->intersecting.begin();it2!=(*it)->intersecting.end();it2++){
+            if(CompareLines(*(*it2),line_nr)){
+                (*it)->intersecting.erase(it2--);
+            }
         }
     }
 }
 
-void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vector<Line> &lines,size_t line_nr,bool keep_maxlik){
+/*
+void MapFsmore::DeleteLine3(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vector<Line> &lines,size_t line_nr,bool keep_maxlik){
     //Delete the pointer to the intersecting line in each voxel
     //Delete the line from the lines map
     for(size_t i=0;i<lines.at(line_nr).voxels.size();i++){
@@ -381,7 +423,7 @@ void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vect
     }
     lines.erase(lines.begin()+line_nr);
 }
-/*
+
 void MapFsmore::DeleteLine2(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vector<Line> &lines,size_t line_nr,bool keep_maxlik){
     //delete voxels* from deleted line
     //delete voxel from voxel_map
@@ -428,19 +470,22 @@ void MapFsmore::DeleteLine2(OctTypePtr oct,std::map<size_t,Voxel> &map, std::vec
 
 
 void MapFsmore::ComputeProbabilities(){
-    for(size_t i=0;i<lines_map.size();i++){
-        NormalizeLine(lines_map.at(i));
+    for (auto it=lines_map.begin();it!=lines_map.end();it++){
+        NormalizeLine(*it);
     }
+//    for(size_t i=0;i<lines_map.size();i++){
+//        NormalizeLine(lines_map.at(i));
+//    }
     // for(size_t i=0;i<lines_obj.size();i++){
     //     NormalizeLine(lines_obj.at(i));
     // }
 }
 
-pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
+pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree,float min_intensity){
     pcl::PointCloud<pcl::PointXYZI> pc;
 
     for(OctType::iterator it = octree->begin();it!=octree->end();it++){
-        if(it->getOccupancy()>=0.50){
+        if(it->getOccupancy()>=min_intensity){
             pcl::PointXYZI p;
             p.x=it.getX();
             p.y=it.getY();
@@ -455,14 +500,14 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree){
 }
 
 
-pcl::PointCloud<pcl::PointXYZI> MapFsmore::getMapPointCloud(){
+pcl::PointCloud<pcl::PointXYZI> MapFsmore::getMapPointCloud(float min_intensity){
     pcl::PointCloud<pcl::PointXYZI>  pc;
-    pc=getPointCloud(oct_map);
+    pc=getPointCloud(oct_map,min_intensity);
     return(pc);
 }
 
-pcl::PointCloud<pcl::PointXYZI> MapFsmore::getObjectPointCloud(){
+pcl::PointCloud<pcl::PointXYZI> MapFsmore::getObjectPointCloud(float min_intensity){
     pcl::PointCloud<pcl::PointXYZI>  pc;
-    pc=getPointCloud(oct_obj);
+    pc=getPointCloud(oct_obj,min_intensity);
     return(pc);
 }
