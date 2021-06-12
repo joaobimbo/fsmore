@@ -50,7 +50,7 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     //printf("checking state: %f %f %f\n",se2state->getX(),se2state->getY(),se2state->getYaw());
 
   //  ros::Time ts=ros::Time::now();
-    fcl::CollisionRequest<float> req;    
+    fcl::CollisionRequest<float> req;        
     req.enable_contact=true;
     req.num_max_contacts=3;
 
@@ -62,6 +62,17 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     float ang = static_cast<float>(se2state->getYaw());
     T2 =  Eigen::Translation3f(se2state->getX(),se2state->getY(),height_z) * Eigen::Quaternionf(0,sin(-ang/2),cos(-ang/2),0);
     bool ret=fcl::collide(col_obj,T2,col_map,T1,req,res);
+    return (!ret);
+/*
+    fcl::DistanceRequest<float> dreq;
+    dreq.enable_signed_distance=true;
+    fcl::DistanceResult<float> dres;
+    if(col_obj->tree->getNumLeafNodes()>0 && col_map->tree->getNumLeafNodes()>0){
+        fcl::distance(col_obj,T2,col_map,T1,dreq,dres);
+        if(dres.min_distance>0.02f) return(false);
+    }
+    return(true);
+*/
 
 
     //ros::Duration d=ros::Time::now()-ts;

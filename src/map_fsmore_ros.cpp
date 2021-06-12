@@ -7,6 +7,7 @@
 MapFsmoreROS::MapFsmoreROS(){
     n=new ros::NodeHandle();
     force_sub = n->subscribe("/contact_force",10,&MapFsmoreROS::cb_contforce, this);
+    pose_sub = n->subscribe("/robot_ee",10,&MapFsmoreROS::cb_eepose, this);
     pub_line =n->advertise<visualization_msgs::Marker>("lines",2);
     pub_map_pc =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
     pub_obj_pc =n->advertise<sensor_msgs::PointCloud2>("obj_pc",2);
@@ -35,8 +36,8 @@ bool MapFsmoreROS::Initialize(){
 
     PCTypePtr stl_pc(new PCType);
 
-    //LoadSTL(mesh_filename, stl_pc);
-    //AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
+    LoadSTL(mesh_filename, stl_pc);
+    AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
 
@@ -85,15 +86,35 @@ inline Eigen::Affine3f MapFsmoreROS::toEigen(geometry_msgs::Transform m){
 
 
 // ROS CALLBACKS
+void MapFsmoreROS::cb_eepose(const geometry_msgs::PoseStamped::ConstPtr& msg){
+    last_pose=*msg;
+}
+
+
 void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg){
     if(first_ft_cb){
         bias_ft=msg->wrench;
         first_ft_cb=false;
     }
+
+//    if((last_pose.header.stamp - msg->header.stamp).toSec()<0.005){
+//        ROS_WARN("Force message is too old");
+//        return;
+//    }
+
+
     geometry_msgs::WrenchStamped w=*msg;
     w.wrench.force=MapTools::v_minus(w.wrench.force,bias_ft.force);
     w.wrench.torque=MapTools::v_minus(w.wrench.torque,bias_ft.torque);
     geometry_msgs::TransformStamped gTw;
+
+    gTw.header=last_pose.header;
+    gTw.transform.rotation=last_pose.pose.orientation;
+    gTw.transform.translation.x=last_pose.pose.position.x;
+    gTw.transform.translation.y=last_pose.pose.position.y;
+    gTw.transform.translation.z=last_pose.pose.position.z;
+
+    /* //Doing ee_pose instead
     try {
         gTw=tfBuffer.lookupTransform(world_frame, object_frame,ros::Time(0));
     }
@@ -102,7 +123,9 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         ros::Duration(0.1).sleep();
         return;
     }
+    */
     if(MapTools::norm(w.wrench.force)>5.0){
+        last_hit=w.header.stamp;
         Line l_map,l_obj;
         visualization_msgs::Marker lm_m=setupLines(world_frame);
         if(mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform),l_map,l_obj)){
@@ -111,7 +134,7 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         AddToMarkerLines(l_map,lm_m);
         pub_line.publish(lm_m);
     }
-    if(MapTools::norm(w.wrench.force)<0.1){
+    if(MapTools::norm(w.wrench.force)<0.5 && (w.header.stamp-last_hit).toSec()>0.5){
         mapper.AddEmpty(toEigen(gTw.transform));
     }
 

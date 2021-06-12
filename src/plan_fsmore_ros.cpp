@@ -5,7 +5,14 @@ PlanFsmoreROS::PlanFsmoreROS()
     n=new ros::NodeHandle();
     //PlanFsmore_2D planner2D;
     //planner = &planner2D;
+#ifdef PLANNER_2D
     planner = new PlanFsmore_2D();
+#endif
+
+#ifdef PLANNER_CSPACE
+    planner = new Plan_CSpace(n);
+#endif
+
 
     boost::function<bool (nav_msgs::GetPlan::Request&,nav_msgs::GetPlan::Response&)> planPath_handle( boost::bind(&PlanFsmoreROS::planPath,this, _1,_2,planner) );
     plan_service = n->advertiseService("get_plan", planPath_handle);
@@ -57,7 +64,7 @@ void PlanFsmoreROS::initializePlanner(){
 
 
 bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
-                             nav_msgs::GetPlan::Response &res, PlanFsmore_2D* planner)
+                             nav_msgs::GetPlan::Response &res, PlanFsmore* planner)
 {
 
     if(srv_oct_map.exists() && srv_oct_obj.exists()){
@@ -138,7 +145,7 @@ void PlanFsmoreROS::publishMarkerArray(std::vector<geometry_msgs::Pose> poses) {
     m.scale.x=0.001;
     m.scale.y=0.001;
     m.scale.z=0.001;
-    m.color.a=0.2f;
+    m.color.a=0.1f;
     m.color.b=1.0;
     n->param<std::string>("world_frame",world_frame,"world");
     m.header.frame_id=world_frame;
@@ -153,7 +160,7 @@ void PlanFsmoreROS::publishMarkerArray(std::vector<geometry_msgs::Pose> poses) {
         float color = static_cast<float>(i)/static_cast<float>(poses.size());
         m.color.g = 1-color;
         m.color.r = color;
-        m.color.a = 0.2f;
+        m.color.a = 0.1f;
         markers.markers.push_back(m);
     }
     pub_plan_markers.publish(markers);

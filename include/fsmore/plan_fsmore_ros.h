@@ -3,6 +3,7 @@
 #include <ros/ros.h>
 //#include <fsmore/plan_fsmore.h>
 #include <fsmore/plan_fsmore_2d.h>
+#include <fsmore/plan_cspace.h>
 #include <nav_msgs/GetPlan.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -18,21 +19,27 @@ class PlanFsmoreROS
 {
 public:
     PlanFsmoreROS();
-    bool planPath(nav_msgs::GetPlan::Request  &req, nav_msgs::GetPlan::Response &res, PlanFsmore_2D *planner);
+    bool planPath(nav_msgs::GetPlan::Request  &req, nav_msgs::GetPlan::Response &res, PlanFsmore *planner);
 
 protected:
     ros::NodeHandle* n;
     ros::ServiceServer plan_service;
     std::string mesh_filename,world_frame;
     ros::Publisher pub_plan_markers;
-//    ros::Subscriber sub_oct_map,sub_oct_obj;
+    //    ros::Subscriber sub_oct_map,sub_oct_obj;
     ros::Publisher pub_map,pub_obj,pub_plan;
 
 
     ros::ServiceClient srv_oct_map,srv_oct_obj;
 
     void initializePlanner();
+#ifdef PLANNER_2D
     PlanFsmore_2D *planner;
+#endif
+
+#ifdef PLANNER_CSPACE
+    Plan_CSpace *planner;
+#endif
 
     void cb_oct_map(const octomap_msgs::Octomap::ConstPtr& msg);
     void cb_oct_obj(const octomap_msgs::Octomap::ConstPtr& msg);
