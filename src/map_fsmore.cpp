@@ -1,4 +1,6 @@
 #include <fsmore/map_fsmore.h>
+#include <sstream>
+
 
 MapFsmore::MapFsmore()
     : pc_obj(new PCType),
@@ -298,6 +300,8 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
     float sum2=0;
     bool paired=false;
 
+    //std::ostringstream debug_1,debug_2;
+
     for (size_t i=0;i<line->voxels.size();i++){
         if(depth!=0){ //normalize intersecting lines
             //for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
@@ -307,7 +311,7 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
             //}
             for(auto it = line->voxels.at(i)->intersecting.begin();it!=line->voxels.at(i)->intersecting.end();it++){
                 if((*it)->p1!=line->p1){
-                   // UpdateProbs(*it,oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
+                    //UpdateProbs(*it,oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
                 }
             }
         }
@@ -338,7 +342,15 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
 
         sum+=prob;
         sum2+=prob2;
+        //debug_1 << prob << ",";
+        //debug_2 << other_prob << ",";
+        //printf("%f, ",prob);
     }
+    //std::cout << debug_1.str() << "\n" << debug_2.str() << "\n";
+    //printf("prd=%f\n",prod2);
+    //debug_1.str("");
+    //debug_2.str("");
+
     for (size_t i=0;i<line->voxels.size();i++){
         Eigen::Vector3f other_point=T*line->voxels.at(i)->p;
         size_t other_key=KeyHasher(other_oct->coordToKey(other_point.x(),other_point.y(),other_point.z()));
@@ -347,16 +359,28 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         float likl2;
         likl2=other_map.at(other_key).getLikelihood();
 
-        float new_likl=(likl1)/(1-prod);
-        float Pc=(likl1*likl2)/(1-prod2);
-
-        line->voxels.at(i)->setLikelihood(Pc+(likl1*(1-likl2))*(1-Pc));
-        other_map.at(other_key).setLikelihood(Pc+(likl2*(1-likl1))*(1-Pc));
+        //float new_likl=(likl1)/(1-prod);
+        //float Pc=(likl1*likl2)/(1-prod2);
+        //line->voxels.at(i)->setLikelihood(Pc+(likl1*(1-likl2))*(1-Pc));
+        //other_map.at(other_key).setLikelihood(Pc+(likl2*(1-likl1))*(1-Pc));
         //line->voxels.at(i)->setLikelihood(Pc);
         //other_map.at(other_key).setLikelihood(Pc);
 
 
+        float new_likl1=((likl1*likl2)+((1-((prod2/(1-likl1*likl2))))*(likl1*(1-likl2))))/(1-prod2);
+        float new_likl2=((likl2*likl1)+((1-((prod2/(1-likl2*likl1))))*(likl2*(1-likl1))))/(1-prod2);
+        //printf("1: %f -> %f 2: %f -> %f | %f\n",likl1,new_likl1,likl2,new_likl2,prod);
+        //printf("%f, ",new_likl1);
+
+        line->voxels.at(i)->setLikelihood(new_likl1);
+        //printf("l: %f %f\n",new_likl2 , line->voxels.at(i)->getLikelihood());
+        other_map.at(other_key).setLikelihood(new_likl2);
+        //debug_1 << new_likl1 << ",";
+        //debug_2 << new_likl2 << ",";
     }
+    //std::cout << debug_1.str() << "\n" << debug_2.str() << "\n==\n";
+
+    //printf("\n");
 }
 
 

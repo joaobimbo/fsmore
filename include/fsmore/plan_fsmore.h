@@ -14,6 +14,7 @@
 
 #include <fcl/geometry/octree/octree.h>
 #include <fcl/narrowphase/collision.h>
+#include <fcl/narrowphase/distance.h>
 
 class PlanFsmore
 {
@@ -25,6 +26,7 @@ public:
     virtual void setBounds(Eigen::Vector3d min,Eigen::Vector3d max) = 0;
     virtual bool isStateValid(const ompl::base::State *state) = 0;
     virtual void setStartAndGoal(geometry_msgs::Pose start,geometry_msgs::Pose goal) = 0;
+    virtual void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound) = 0;
 
     OctTypePtr oct_map,oct_obj;
     fcl::OcTreef *col_map,*col_obj;
@@ -33,6 +35,8 @@ public:
     void setObjOctree(octomap::OcTree in);
 
 protected:
+    double step_size,plan_timeout;
+
     std::shared_ptr<ompl::base::SpaceInformation> si;
     std::shared_ptr<ompl::base::ProblemDefinition> pdef;
     std::shared_ptr<ompl::base::Planner> plan_ptr;

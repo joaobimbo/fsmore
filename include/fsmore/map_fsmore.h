@@ -87,7 +87,8 @@ public:
         return(p2);
     }
     void setLikelihood(float in){
-        if(in<0.00001) in=0.00001;
+        if(in<0.001) in=0.001;
+        if(in>0.999) in=0.999;
         map->setNodeValue(key,std::log(in/(1-in)));
         //OctType::NodeType *n=map->search(key);
         //printf("%f %f %f %f\n",in,log(in/(1-in)),n->getValue(),map->getClampingThresMin());        
@@ -139,7 +140,7 @@ public:
     void CleanupLines();
     double decay_time = 60.0;
     void resetMap(double resolution);
-    double line_half_length=1.0f;
+    double line_half_length=0.10f;
     double line_res=0.01;
 
 protected:

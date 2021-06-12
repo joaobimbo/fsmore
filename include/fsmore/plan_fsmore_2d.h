@@ -23,10 +23,9 @@ public:
 
 protected:
     std::shared_ptr<ompl::base::SE2StateSpace> space;
-    ompl::base::RealVectorBounds bounds;
     geometry_msgs::Pose pose2Dto3D(double x,double y,double z,double ang);
     float height_z=0.2;
-    double step_size,plan_timeout;
+    ompl::base::RealVectorBounds bounds;
 
 };
 
