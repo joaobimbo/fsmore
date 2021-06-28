@@ -1,6 +1,8 @@
 #include <fsmore/map_fsmore.h>
 #include <sstream>
-
+#include <omp.h>
+#include <sys/time.h>   // for gettimeofday()
+#include <chrono>
 
 MapFsmore::MapFsmore()
     : pc_obj(new PCType),
@@ -27,7 +29,7 @@ MapFsmore::MapFsmore()
     //oct_obj->setInputCloud(pc_obj);
     //oct_obj->setSaveLeafLayout(true);
     //oct_obj->addPointsFromInputCloud();
-
+    omp_set_num_threads(4);
 
 }
 
@@ -92,16 +94,16 @@ bool MapFsmore::CompareLines(Line l1,Line l2){
 bool MapFsmore::LineExists(std::list<Line> &lines,Line &l_in){
     for (auto it=lines.begin();it!=lines.end();it++){
         if(CompareLines(l_in,*it)){
-             time(&(it->timestamp));
-             return true;
+            time(&(it->timestamp));
+            return true;
         }
     }
-//    for (size_t i=0;i<lines.size();i++){
-//        if(CompareLines(l_in,lines.at(i))){
-//            time(&lines.at(i).timestamp);
-//            return(true);
-//        }
-//    }
+    //    for (size_t i=0;i<lines.size();i++){
+    //        if(CompareLines(l_in,lines.at(i))){
+    //            time(&lines.at(i).timestamp);
+    //            return(true);
+    //        }
+    //    }
     time(&l_in.timestamp);
     return(false);
 }
@@ -137,9 +139,11 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T,
     //KeyType kk=oct_map->coordToKey(PType(0.2f,0.0f,0.2f));
     //printf("KK: %d\n", KeyHasher(kk));
 
-
+    auto begin2=std::chrono::high_resolution_clock::now();
     bool lmap_exists=LineExists(lines_map,l_m);
     bool lobj_exists=LineExists(lines_obj,l_o);
+    printf("LE %ld \n",std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin2).count());
+
 
     if(lmap_exists && lobj_exists){
         return(false);
@@ -163,13 +167,10 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T,
 
     }
 
-
-
     UpdateProbs(&lines_map.back(),oct_map,oct_obj,map_map,map_obj,T.inverse(),1);
-
     return(true);
 
-
+    /*
 
     float tot_prob_line=0.0f;
 
@@ -230,6 +231,7 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T,
         //float lkl2=v_o->getLikelihood();
         //v_m->setLikelihood(lkl1+0.1);
     }
+    */
     //Normalize ProbContact:
     /*    if((lines_map.back().prob_contact.size() != lines_map.back().prob_contact.size() )
             || (lines_map.back().prob_contact.size()!=lines_map.back().voxels.size() )
@@ -255,12 +257,10 @@ bool MapFsmore::AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T,
         lines_obj.back().voxels.at(i)->setLikelihood(max_lik);
     }
 */
-    UpdateProbs(&lines_map.back(),oct_map,oct_obj,map_map,map_obj,T.inverse(),1);
+    // UpdateProbs(&lines_map.back(),oct_map,oct_obj,map_map,map_obj,T.inverse(),1);
     //  UpdateProbs(&lines_obj.back(),oct_obj,oct_map,map_obj,map_map,T,1);
 
-
-
-    return(true);
+    // return(true);
 }
 
 
@@ -269,52 +269,84 @@ bool MapFsmore::AddEmpty(Eigen::Affine3f T){
     UpdateFree(oct_obj,oct_map,map_obj,map_map,T);
     //}
     //else{
-    UpdateFree(oct_map,oct_obj,map_map,map_obj,T.inverse());
+    //UpdateFree(oct_map,oct_obj,map_map,map_obj,T.inverse());
     //}
     return(true);
 }
 
 void MapFsmore::UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T){
-    for (std::map<size_t,Voxel>::iterator it = map.begin();it!=map.end();it++){
+    printf("Map sizes (free): %zu %zu \n",map.size(),other_map.size());
 
-        PType p=it->second.TransformCoord(T);
+    auto begin= std::chrono::high_resolution_clock::now();
+    int map_size=static_cast<int>(map.size());
+    int n_threads=static_cast<int>(omp_get_max_threads());
+    omp_lock_t writelock;
+    omp_init_lock(&writelock);
 
-        std::map<size_t,Voxel>::iterator it2=other_map.find(KeyHasher(other_oct->coordToKey(p)));
-        if(it2!=other_map.end()){
-            float P1=it->second.getLikelihood();
-            float P2=it2->second.getLikelihood();
-            float prod=1-(P1*P2);
-            if(prod == 0.0f) prod=0.0000001f;
-            it->second.setLikelihood((P1*(1-P2))/prod);
-            it2->second.setLikelihood((P2*(1-P1))/prod);
+
+#pragma omp parallel for
+    for (int thr=0;thr<n_threads;thr++){
+        auto begin2= std::chrono::high_resolution_clock::now();
+        int tid = omp_get_thread_num();
+        auto it = map.begin();
+        std::advance(it, tid*map_size/n_threads);
+        for (int i = 0; i < static_cast<int>(map.size())/n_threads; i++){
+            //for (std::map<size_t,Voxel>::iterator it = map.begin();it!=map.end();it++){
+            //printf("This is thread %i announcing that the number of launched threads is %i\n", tid, omp_get_num_threads());
+            PType p=it->second.TransformCoord(T);
+            //        std::cout << "1 " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin).count() << "  " << tid << "\n";
+            std::map<size_t,Voxel>::iterator it2=other_map.find(KeyHasher(other_oct->coordToKey(p)));
+            //        std::cout << "2 " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin).count() << "  " << tid << "\n";
+            if(it2!=other_map.end()){
+                float P1=it->second.getLikelihood();
+                float P2=it2->second.getLikelihood();
+                float prod=1-(P1*P2);
+                if(prod == 0.0f) prod=0.0000001f;
+                omp_set_lock(&writelock);
+                //#pragma omp critical
+                {
+                    it->second.setLikelihood((P1*(1-P2))/prod);
+                    it2->second.setLikelihood((P2*(1-P1))/prod);
+                }
+                omp_unset_lock(&writelock);
+                //            std::cout << "3 " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin).count() << " " << tid << "\n";
+            }
+            else{
+                //            std::cout << "4 " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin).count() << " " << tid << "\n";
+            }
+            it++;
         }
+        omp_destroy_lock(&writelock);
+        printf("000 %ld %d / %d \n",std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin2).count(),tid,n_threads);
+        //    std::cout << "5 " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin).count() << " " << "\n+++++++++++\n";
     }
-
 }
 
 void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  std::map<size_t,Voxel> &map,  std::map<size_t,Voxel> &other_map, Eigen::Affine3f T, int depth){
 
-    float prod=1.0;
-    float sum=0;
+    //float prod=1.0;
+    //float sum=0;
     float prod2=1.0;
-    float sum2=0;
+    //float sum2=0;
     bool paired=false;
+    omp_lock_t writelock;
+    omp_init_lock(&writelock);
 
     //std::ostringstream debug_1,debug_2;
-
+#pragma omp parallel for
     for (size_t i=0;i<line->voxels.size();i++){
-        if(depth!=0){ //normalize intersecting lines
-            //for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
-            //    if(line->voxels.at(i)->intersecting.at(j)->p1!=line->p1){ //but only other lines (not this)
-            //        UpdateProbs(line->voxels.at(i)->intersecting.at(j),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
-            //    }
-            //}
-            for(auto it = line->voxels.at(i)->intersecting.begin();it!=line->voxels.at(i)->intersecting.end();it++){
-                if((*it)->p1!=line->p1){
-                    //UpdateProbs(*it,oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
-                }
-            }
-        }
+        //        if(depth!=0){ //normalize intersecting lines
+        //            //for(size_t j=0;j<line->voxels.at(i)->intersecting.size();j++){
+        //            //    if(line->voxels.at(i)->intersecting.at(j)->p1!=line->p1){ //but only other lines (not this)
+        //            //        UpdateProbs(line->voxels.at(i)->intersecting.at(j),oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
+        //            //    }
+        //            //}
+        //            for(auto it = line->voxels.at(i)->intersecting.begin();it!=line->voxels.at(i)->intersecting.end();it++){
+        //                if((*it)->p1!=line->p1){
+        //                    //UpdateProbs(*it,oct,other_oct,map,other_map,T,0); // send zero depth to avoid infinite recursion.
+        //                }
+        //            }
+        //        }
         Eigen::Vector3f other_point=T*line->voxels.at(i)->p;
         size_t other_key=KeyHasher(other_oct->coordToKey(other_point.x(),other_point.y(),other_point.z()));
 
@@ -328,8 +360,13 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         else{
             other_prob=1.0f/line->voxels.size();
             Voxel v_o(other_oct,PType(other_point.x(),other_point.y(),other_point.z()),other_key);
-            v_o.setLikelihood(other_prob);
-            other_map.insert(std::pair<size_t,Voxel>(other_key,v_o));
+            omp_set_lock(&writelock);
+            //#pragma omp critical
+            {
+                v_o.setLikelihood(other_prob);
+                other_map.insert(std::pair<size_t,Voxel>(other_key,v_o));
+            }
+            omp_unset_lock(&writelock);
         }
 
         //float prob=std::max(line->voxels.at(i)->getLikelihood(),1.0f/line->voxels.size());
@@ -337,11 +374,16 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         //float prob2=line->voxels.at(i)->getLikelihood()*other_prob;
         float prob2=(1-(prob*other_prob));
 
-        prod*=(1-prob);
-        prod2*=prob2;
+        //prod*=(1-prob);
+        omp_set_lock(&writelock);
+        //#pragma omp critical
+        {
+            prod2*=prob2;
+        }
+        omp_unset_lock(&writelock);
 
-        sum+=prob;
-        sum2+=prob2;
+        //sum+=prob;
+        //sum2+=prob2;
         //debug_1 << prob << ",";
         //debug_2 << other_prob << ",";
         //printf("%f, ",prob);
@@ -350,14 +392,13 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
     //printf("prd=%f\n",prod2);
     //debug_1.str("");
     //debug_2.str("");
-
+#pragma omp parallel for
     for (size_t i=0;i<line->voxels.size();i++){
         Eigen::Vector3f other_point=T*line->voxels.at(i)->p;
         size_t other_key=KeyHasher(other_oct->coordToKey(other_point.x(),other_point.y(),other_point.z()));
 
         float likl1=line->voxels.at(i)->getLikelihood();
-        float likl2;
-        likl2=other_map.at(other_key).getLikelihood();
+        float likl2=other_map.at(other_key).getLikelihood();
 
         //float new_likl=(likl1)/(1-prod);
         //float Pc=(likl1*likl2)/(1-prod2);
@@ -371,10 +412,15 @@ void MapFsmore::UpdateProbs(Line *line,OctTypePtr &oct, OctTypePtr &other_oct,  
         float new_likl2=((likl2*likl1)+((1-((prod2/(1-likl2*likl1))))*(likl2*(1-likl1))))/(1-prod2);
         //printf("1: %f -> %f 2: %f -> %f | %f\n",likl1,new_likl1,likl2,new_likl2,prod);
         //printf("%f, ",new_likl1);
+        omp_set_lock(&writelock);
+        //#pragma omp critical
+        {
+            line->voxels.at(i)->setLikelihood(new_likl1);
+            //printf("l: %f %f\n",new_likl2 , line->voxels.at(i)->getLikelihood());
+            other_map.at(other_key).setLikelihood(new_likl2);
+        }
+        omp_unset_lock(&writelock);
 
-        line->voxels.at(i)->setLikelihood(new_likl1);
-        //printf("l: %f %f\n",new_likl2 , line->voxels.at(i)->getLikelihood());
-        other_map.at(other_key).setLikelihood(new_likl2);
         //debug_1 << new_likl1 << ",";
         //debug_2 << new_likl2 << ",";
     }
@@ -411,16 +457,16 @@ void MapFsmore::CleanupLines(){
     }
 
 
-//    for(size_t i=0;i<lines_map.size();i++){
-//        if(difftime(now,lines_map.at(i).timestamp)>decay_time){
-//            DeleteLine(oct_map,map_map,lines_map,i,true);
-//        }
-//    }
-//    for(size_t i=0;i<lines_obj.size();i++){
-//        if(difftime(now,lines_obj.at(i).timestamp)>decay_time){
-//            DeleteLine(oct_obj,map_obj,lines_obj,i,true);
-//        }
-//    }
+    //    for(size_t i=0;i<lines_map.size();i++){
+    //        if(difftime(now,lines_map.at(i).timestamp)>decay_time){
+    //            DeleteLine(oct_map,map_map,lines_map,i,true);
+    //        }
+    //    }
+    //    for(size_t i=0;i<lines_obj.size();i++){
+    //        if(difftime(now,lines_obj.at(i).timestamp)>decay_time){
+    //            DeleteLine(oct_obj,map_obj,lines_obj,i,true);
+    //        }
+    //    }
 }
 void MapFsmore::DeleteLine(OctTypePtr oct,std::map<size_t,Voxel> &map, std::list<Line> &lines,Line& line_nr){
     //Delete the pointer to the intersecting line in each voxel
@@ -497,24 +543,24 @@ void MapFsmore::ComputeProbabilities(){
     for (auto it=lines_map.begin();it!=lines_map.end();it++){
         NormalizeLine(*it);
     }
-//    for(size_t i=0;i<lines_map.size();i++){
-//        NormalizeLine(lines_map.at(i));
-//    }
+    //    for(size_t i=0;i<lines_map.size();i++){
+    //        NormalizeLine(lines_map.at(i));
+    //    }
     // for(size_t i=0;i<lines_obj.size();i++){
     //     NormalizeLine(lines_obj.at(i));
     // }
 }
 
-pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree,float min_intensity){
+pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree,double min_intensity){
     pcl::PointCloud<pcl::PointXYZI> pc;
 
     for(OctType::iterator it = octree->begin();it!=octree->end();it++){
         if(it->getOccupancy()>=min_intensity){
             pcl::PointXYZI p;
-            p.x=it.getX();
-            p.y=it.getY();
-            p.z=it.getZ();
-            p.intensity=it->getOccupancy();//Value();// Occupancy();//getLogOdds();
+            p.x=static_cast<float>(it.getX());
+            p.y=static_cast<float>(it.getY());
+            p.z=static_cast<float>(it.getZ());
+            p.intensity=static_cast<float>(it->getOccupancy());//Value();// Occupancy();//getLogOdds();
             pc.push_back(p);
         }
         //pcl::octree::OctreeLeafNode<PType> n;
@@ -524,13 +570,13 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree,float
 }
 
 
-pcl::PointCloud<pcl::PointXYZI> MapFsmore::getMapPointCloud(float min_intensity){
+pcl::PointCloud<pcl::PointXYZI> MapFsmore::getMapPointCloud(double min_intensity){
     pcl::PointCloud<pcl::PointXYZI>  pc;
     pc=getPointCloud(oct_map,min_intensity);
     return(pc);
 }
 
-pcl::PointCloud<pcl::PointXYZI> MapFsmore::getObjectPointCloud(float min_intensity){
+pcl::PointCloud<pcl::PointXYZI> MapFsmore::getObjectPointCloud(double min_intensity){
     pcl::PointCloud<pcl::PointXYZI>  pc;
     pc=getPointCloud(oct_obj,min_intensity);
     return(pc);
