@@ -67,6 +67,10 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
                              nav_msgs::GetPlan::Response &res, PlanFsmore* planner)
 {
 
+    printf("STARTING THE SERVICE THING\n");
+    ros::Time ts=ros::Time::now();
+
+
     if(srv_oct_map.exists() && srv_oct_obj.exists()){
         octomap_msgs::GetOctomap srv1,srv2;
         srv_oct_map.call(srv1.request,srv1.response);
@@ -74,6 +78,10 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         srv_oct_obj.call(srv2.request,srv2.response);
         srv2.response.map.header.stamp=ros::Time::now();
         pub_obj.publish(srv2.response.map);
+        ros::Duration d4=ros::Time::now()-ts;
+        printf("to0 -- called and published -- %f\n",d4.toSec());
+
+
         ROS_WARN("Size: %zu %zu",srv1.response.map.data.size(),srv2.response.map.data.size());
         octomap::AbstractOcTree *tree_map,*tree_obj;
         tree_map = octomap_msgs::msgToMap(srv1.response.map);
@@ -81,8 +89,13 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         tree_obj = octomap_msgs::msgToMap(srv2.response.map);
         planner->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree_obj)));
 
+        ros::Duration d5=ros::Time::now()-ts;
+        printf("to00 -- converted to octree -- %f\n",d5.toSec());
+
     }
 
+    ros::Duration d=ros::Time::now()-ts;
+    printf("to1-- %f\n",d.toSec());
 
    ///ERASE Tiz
 //    octomap_msgs::Octomap oct_map_msg;
@@ -114,6 +127,10 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
 
     initializePlanner();    
     geometry_msgs::PoseArray pose_solutions,pose_vertexes;
+
+    ros::Duration d2=ros::Time::now()-ts;
+    printf("to2-- %f\n",d2.toSec());
+
     ompl::base::PlannerStatus success = planner->getPlan(req.start.pose,req.goal.pose,pose_solutions,pose_vertexes);
     if(!success){
         return(false);
@@ -130,6 +147,8 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         poseS.pose=pose_solutions.poses.at(i);
         res.plan.poses.push_back(poseS);
     }
+    ros::Duration d3=ros::Time::now()-ts;
+    printf("to3-- %f\n",d3.toSec());
 
     res.plan.header.frame_id=req.start.header.frame_id;
     res.plan.header.stamp=ros::Time::now();

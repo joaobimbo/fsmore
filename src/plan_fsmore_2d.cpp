@@ -49,10 +49,10 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     const ompl::base::SE2StateSpace::StateType *se2state = state->as<ompl::base::SE2StateSpace::StateType>();
     //printf("checking state: %f %f %f\n",se2state->getX(),se2state->getY(),se2state->getYaw());
 
-  //  ros::Time ts=ros::Time::now();
+    //ros::Time ts=ros::Time::now();
     fcl::CollisionRequest<float> req;        
-    req.enable_contact=true;
-    req.num_max_contacts=3;
+    req.enable_cost=false;
+    req.enable_contact=false;
 
     //printf("SIZE: %zu %zu\n",col_obj->tree->getNumLeafNodes(),col_map->tree->getNumLeafNodes());
 
@@ -62,6 +62,8 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     float ang = static_cast<float>(se2state->getYaw());
     T2 =  Eigen::Translation3f(se2state->getX(),se2state->getY(),height_z) * Eigen::Quaternionf(0,sin(-ang/2),cos(-ang/2),0);
     bool ret=fcl::collide(col_obj,T2,col_map,T1,req,res);
+    //ros::Duration d=ros::Time::now()-ts;
+    //printf("NUM: %d %d - %fs\n",col_map->tree->getNumLeafNodes(),col_obj->tree->getNumLeafNodes(),d.toSec());
     return (!ret);
 /*
     fcl::DistanceRequest<float> dreq;
@@ -75,8 +77,7 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
 */
 
 
-    //ros::Duration d=ros::Time::now()-ts;
-    //printf("NUM: %d %d - %fs\n",col_map->tree->getNumLeafNodes(),col_obj->tree->getNumLeafNodes(),d.toSec());
+
     size_t n_contacts=res.numContacts();    
     //    printf("NC: %d\n",n_contacts);
     //    for (int i=0;i<n_contacts;i++){
@@ -105,6 +106,9 @@ bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
 
 
 ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geometry_msgs::Pose goal,geometry_msgs::PoseArray &solution,geometry_msgs::PoseArray &vertexes){
+    printf("Starting the plan\n");
+    ros::Time ts=ros::Time::now();
+
     ompl::base::PlannerData data(si);
     std::vector<geometry_msgs::Pose> plan;
     setStartAndGoal(start,goal);
@@ -151,8 +155,13 @@ ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geom
     planner->setRange(step_size);
     //planner->setGoalBias(0.001);
     planner->setup();
+    ros::Duration d=ros::Time::now()-ts;
+    printf("t1-- %f\n",d.toSec());
+
 
     ompl::base::PlannerStatus solved = planner->ompl::base::Planner::solve(static_cast<double>(plan_timeout));
+    ros::Duration d2=ros::Time::now()-ts;
+    printf("t2-- %f\n",d2.toSec());
     printf("Solution: %s\n",solved.asString().c_str());    
     if (solved)
     {
@@ -171,6 +180,8 @@ ompl::base::PlannerStatus PlanFsmore_2D::getPlan(geometry_msgs::Pose start, geom
         const ompl::base::SE2StateSpace::StateType *state = data.getVertex(i).getState()->as<ompl::base::SE2StateSpace::StateType>();
         vertexes.poses.push_back(pose2Dto3D(state->getX(),state->getY(),start.position.z,state->getYaw()));
     }
+    ros::Duration d3=ros::Time::now()-ts;
+    printf("t2-- %f\n",d3.toSec());
 
     return(solved);
 

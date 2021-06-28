@@ -6,8 +6,8 @@
 // CONSTRUCTOR
 MapFsmoreROS::MapFsmoreROS(){
     n=new ros::NodeHandle();
-    force_sub = n->subscribe("/contact_force",10,&MapFsmoreROS::cb_contforce, this);
-    pose_sub = n->subscribe("/robot_ee",10,&MapFsmoreROS::cb_eepose, this);
+    force_sub = n->subscribe("/contact_force",1,&MapFsmoreROS::cb_contforce, this);
+    pose_sub = n->subscribe("/robot_ee",1,&MapFsmoreROS::cb_eepose, this);
     pub_line =n->advertise<visualization_msgs::Marker>("lines",2);
     pub_map_pc =n->advertise<sensor_msgs::PointCloud2>("map_pc",2);
     pub_obj_pc =n->advertise<sensor_msgs::PointCloud2>("obj_pc",2);
@@ -21,7 +21,7 @@ bool MapFsmoreROS::Initialize(){
     tfListener = new tf2_ros::TransformListener(tfBuffer);
     n->param<std::string>("/object_file", mesh_filename, "mesh.stl");
     n->param<double>("/decay_time", mapper.decay_time, 30.0);
-    n->param<double>("/line_length", mapper.line_half_length, 1.0);
+    n->param<float>("/line_length", mapper.line_half_length, 1.0);
 
     n->param<std::string>("world_frame",world_frame,"world");
     n->param<std::string>("object_frame",object_frame,"object");
@@ -36,12 +36,19 @@ bool MapFsmoreROS::Initialize(){
 
     PCTypePtr stl_pc(new PCType);
 
-    LoadSTL(mesh_filename, stl_pc);
-    AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
+    //LoadSTL(mesh_filename, stl_pc);
+    //AddPointsFromPC(stl_pc,mapper.oct_obj,mapper.pc_obj,mapper.map_obj);
     return(true);
 }
 
 bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_msgs::GetOctomap::Response &res, OctTypePtr octo,std::string frame){
+
+    ros::Time ts=ros::Time::now();
+
+
+    ros::Duration d1=ros::Time::now()-ts;
+    printf("to0 -- A -- %f\n",d1.toSec());
+
     octomap_msgs::Octomap oct_map_msg;
     octo->setOccupancyThres(0.5);
     OctType octo_out(octo->getResolution());
@@ -50,6 +57,9 @@ bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_ms
             octo_out.setNodeValue(it.getX(),it.getY(),it.getZ(),it->getLogOdds());
         }
     }
+    ros::Duration d2=ros::Time::now()-ts;
+    printf("to1 -- B -- %f\n",d2.toSec());
+
     octomap_msgs::fullMapToMsg(octo_out,oct_map_msg);
     //octomap_msgs::binaryMapToMsg(*(octo),oct_map_msg);
     oct_map_msg.header.stamp=ros::Time::now();
@@ -64,6 +74,8 @@ bool MapFsmoreROS::getOctomap(octomap_msgs::GetOctomap::Request  &req,octomap_ms
     //    else{
     //        pub_oct_obj.publish(oct_map_msg);
     //    }
+    ros::Duration d3=ros::Time::now()-ts;
+    printf("to1 -- C -- %f\n",d3.toSec());
 
     return(true);
 }
@@ -92,6 +104,8 @@ void MapFsmoreROS::cb_eepose(const geometry_msgs::PoseStamped::ConstPtr& msg){
 
 
 void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg){
+    ros::Time ts=ros::Time::now();
+
     if(first_ft_cb){
         bias_ft=msg->wrench;
         first_ft_cb=false;
@@ -139,14 +153,16 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
     }
 
     mapper.CleanupLines();
-    float min_intensity;
-    n->param<float>("/min_intensity", min_intensity, 0.50);
+    double min_intensity;
+    n->param<double>("/min_intensity", min_intensity, 0.50);
 
     PublishPointCloud(mapper.getMapPointCloud(min_intensity),pub_map_pc,world_frame);
     PublishPointCloud(mapper.getObjectPointCloud(min_intensity),pub_obj_pc,object_frame);
 
     //PublishOctrees(mapper.oct_map,pub_oct_map,world_frame);
     //PublishOctrees(mapper.oct_obj,pub_oct_obj,object_frame);
+    ros::Duration d=ros::Time::now()-ts;
+    printf("fcallback-- %f\n",d.toSec());
 
 }
 
@@ -175,7 +191,7 @@ visualization_msgs::Marker MapFsmoreROS::setupLines(std::string frame_id){
     lines.type = visualization_msgs::Marker::LINE_LIST;
     lines.scale.x = 0.005;
     lines.pose.orientation.w=1.0;
-    lines.color.a = 0.2;
+    lines.color.a = 0.2f;
     lines.points.resize(40);
 
     lines.header.frame_id=frame_id;

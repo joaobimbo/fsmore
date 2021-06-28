@@ -4,7 +4,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
-
+#add_compile_options(-fopenmp)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -15,14 +15,16 @@ find_package(catkin REQUIRED COMPONENTS
     tf2_ros
     pcl_conversions
     pcl_ros
-    octomap_ros
+#    octomap_ros
     octomap_msgs
     ompl
     )
+find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FCL REQUIRED)
 find_package(PCL REQUIRED)
 find_package(CCD REQUIRED)
+find_package(octomap REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -159,7 +161,8 @@ link_libraries(${OCTOMAP_LIBRARIES}  ${OMPL_LIBRARY_DIRS} ${FCL_LIBRARY_DIRS})
 
 add_executable(map_fsmore src/mapping_main.cpp src/map_fsmore_ros.cpp src/map_fsmore.cpp)
 add_dependencies(map_fsmore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(map_fsmore ${catkin_LIBRARIES} )
+target_compile_options(map_fsmore PRIVATE -Wall ${OpenMP_CXX_FLAGS})
+target_link_libraries(map_fsmore ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS} )
 
 
 add_executable(plan_fsmore2d src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_fsmore_2d.cpp)

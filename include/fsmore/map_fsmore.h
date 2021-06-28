@@ -47,7 +47,7 @@ public:
     }
     Line(const Line &other){
        *this=other;
-       for(int i=0;i<other.voxels.size();i++) this->voxels.at(i)=(other.voxels.at(i));
+       for(long unsigned int i=0;i<other.voxels.size();i++) this->voxels.at(i)=(other.voxels.at(i));
     }
 
     Line Transform(Eigen::Affine3f T){
@@ -87,8 +87,8 @@ public:
         return(p2);
     }
     void setLikelihood(float in){
-        if(in<0.001) in=0.001;
-        if(in>0.999) in=0.999;
+        if(in<0.005) in=0.005;
+        if(in>0.995) in=0.995;
         map->setNodeValue(key,std::log(in/(1-in)));
         //OctType::NodeType *n=map->search(key);
         //printf("%f %f %f %f\n",in,log(in/(1-in)),n->getValue(),map->getClampingThresMin());        
@@ -130,8 +130,8 @@ public:
     MapFsmore();
     bool AddLine(Eigen::Vector3f F, Eigen::Vector3f M, Eigen::Affine3f T, Line &l_map, Line &l_obj);
     bool AddEmpty(Eigen::Affine3f T);
-    pcl::PointCloud<pcl::PointXYZI> getMapPointCloud(float min_intensity);
-    pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud(float min_intensity);
+    pcl::PointCloud<pcl::PointXYZI> getMapPointCloud(double min_intensity);
+    pcl::PointCloud<pcl::PointXYZI> getObjectPointCloud(double min_intensity);
     OctTypePtr oct_map,oct_obj;
     PCTypePtr pc_obj,pc_map;
     size_t KeyHasher(KeyType key_arg);
@@ -140,7 +140,7 @@ public:
     void CleanupLines();
     double decay_time = 60.0;
     void resetMap(double resolution);
-    double line_half_length=0.10f;
+    float line_half_length=0.10f;
     double line_res=0.01;
 
 protected:
@@ -151,7 +151,7 @@ protected:
 
     Line ForceToLine(Eigen::Vector3f F_in, Eigen::Vector3f M_in, Eigen::Vector3f &p1, Eigen::Vector3f &p2,float &k);
 
-    pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree, float min_intensity);
+    pcl::PointCloud<pcl::PointXYZI> getPointCloud(OctTypePtr octree, double min_intensity);
     //bool LineExists(std::vector<Line> &lines, Line &l_in);
     bool LineExists(std::list<Line> &lines, Line &l_in);
     bool CompareLines(Line l1,Line l2);
