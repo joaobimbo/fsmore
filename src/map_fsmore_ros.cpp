@@ -152,9 +152,19 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         mapper.AddEmpty(toEigen(gTw.transform));
     }
 
+    ros::Duration d0=ros::Time::now()-ts;
+    printf("fcallback (before clean)-- %f\n",d0.toSec());
+
+
     mapper.CleanupLines();
+
+    ros::Duration d2=ros::Time::now()-ts;
+    printf("fcallback (before param)-- %f\n",d2.toSec());
+
     double min_intensity;
     n->param<double>("/min_intensity", min_intensity, 0.50);
+    ros::Duration d3=ros::Time::now()-ts;
+    printf("fcallback (before pub)-- %f\n",d3.toSec());
 
     PublishPointCloud(mapper.getMapPointCloud(min_intensity),pub_map_pc,world_frame);
     PublishPointCloud(mapper.getObjectPointCloud(min_intensity),pub_obj_pc,object_frame);
