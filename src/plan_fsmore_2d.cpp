@@ -45,6 +45,14 @@ void PlanFsmore_2D::setBounds(Eigen::Vector3d min, Eigen::Vector3d max){
 
 }
 
+bool PlanFsmore_2D::isValid(geometry_msgs::Pose pose){
+    ompl::base::ScopedState<ompl::base::SE2StateSpace> state_checked(space);
+    state_checked->setXY(pose.position.x,pose.position.y);
+    state_checked->setYaw(asin(-2*pose.orientation.x*pose.orientation.y));
+    return(isStateValid(state_checked.get()));
+
+}
+
 bool PlanFsmore_2D::isStateValid(const ompl::base::State *state){
     const ompl::base::SE2StateSpace::StateType *se2state = state->as<ompl::base::SE2StateSpace::StateType>();
     //printf("checking state: %f %f %f\n",se2state->getX(),se2state->getY(),se2state->getYaw());

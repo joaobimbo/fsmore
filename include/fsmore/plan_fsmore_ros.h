@@ -14,25 +14,25 @@
 #include <octomap_msgs/Octomap.h>
 #include <octomap_msgs/conversions.h>
 #include <fsmore/map_fsmore.h>
+#include <fsmore/CheckPoseValid.h>
 
 class PlanFsmoreROS
 {
 public:
     PlanFsmoreROS();
     bool planPath(nav_msgs::GetPlan::Request  &req, nav_msgs::GetPlan::Response &res, PlanFsmore *planner);
-
+    bool checkValid(fsmore::CheckPoseValid::Request  &req, fsmore::CheckPoseValid::Response &res, PlanFsmore *planner);
 protected:
     ros::NodeHandle* n;
-    ros::ServiceServer plan_service;
+    ros::ServiceServer plan_service, plan_service_check;
     std::string mesh_filename,world_frame;
     ros::Publisher pub_plan_markers;
     //    ros::Subscriber sub_oct_map,sub_oct_obj;
     ros::Publisher pub_map,pub_obj,pub_plan;
-
-
     ros::ServiceClient srv_oct_map,srv_oct_obj;
 
     void initializePlanner();
+    bool setupOctrees(PlanFsmore* planner);
 #ifdef PLANNER_2D
     PlanFsmore_2D *planner;
 #endif

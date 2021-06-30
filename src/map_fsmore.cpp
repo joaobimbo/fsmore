@@ -141,7 +141,7 @@ void MapFsmore::UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<siz
 
 #pragma omp parallel for
     for (int thr=0;thr<n_threads;thr++){
-        auto begin2= std::chrono::high_resolution_clock::now();
+        //auto begin2= std::chrono::high_resolution_clock::now();
         int tid = omp_get_thread_num();
         auto it = map.begin();
         std::advance(it, tid*map_size/n_threads);
@@ -171,7 +171,7 @@ void MapFsmore::UpdateFree(OctTypePtr &oct, OctTypePtr &other_oct,  std::map<siz
             it++;
         }
         omp_destroy_lock(&writelock);
-        printf("000 %ld %d / %d \n",std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin2).count(),tid,n_threads);
+        //printf("000 %ld %d / %d \n",std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin2).count(),tid,n_threads);
         //    std::cout << "5 " << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()-begin).count() << " " << "\n+++++++++++\n";
     }
 }
@@ -309,9 +309,6 @@ pcl::PointCloud<pcl::PointXYZI> MapFsmore::getPointCloud(OctTypePtr octree,doubl
         OctType::iterator it = octree->begin();
         std::advance(it, tid*octree_size/n_threads);
         for (int i = 0; i < static_cast<int>(octree_size)/n_threads; i++){
-            int a=it.getKey().k[0];
-            int b=it.getKey().k[1];
-            int c=it.getKey().k[2];
             if(it->getOccupancy()>=min_intensity){
                 pcl::PointXYZI p;
                 p.x=static_cast<float>(it.getX());

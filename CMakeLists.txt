@@ -10,6 +10,7 @@ set(CMAKE_BUILD_TYPE Debug)
 ## is used, also find other catkin packages
 
 find_package(catkin REQUIRED COMPONENTS
+    std_msgs
     cmake_modules
     roscpp
     tf2_ros
@@ -66,11 +67,11 @@ find_package(octomap REQUIRED)
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
+ add_service_files(
+   FILES
+   CheckPoseValid.srv
 #   Service2.srv
-# )
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -80,10 +81,11 @@ find_package(octomap REQUIRED)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs  # Or other packages containing msgs
+   geometry_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##

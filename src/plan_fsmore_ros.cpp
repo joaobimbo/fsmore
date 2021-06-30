@@ -15,7 +15,9 @@ PlanFsmoreROS::PlanFsmoreROS()
 
 
     boost::function<bool (nav_msgs::GetPlan::Request&,nav_msgs::GetPlan::Response&)> planPath_handle( boost::bind(&PlanFsmoreROS::planPath,this, _1,_2,planner) );
+    boost::function<bool (fsmore::CheckPoseValid::Request&,fsmore::CheckPoseValid::Response&)> checkValid_handle( boost::bind(&PlanFsmoreROS::checkValid,this, _1,_2,planner) );
     plan_service = n->advertiseService("get_plan", planPath_handle);
+    plan_service_check = n->advertiseService("check_pose", checkValid_handle);
     pub_plan_markers = n->advertise<visualization_msgs::MarkerArray>("plan_steps",1);
     //sub_oct_map = n->subscribe("/oct_map",2,&PlanFsmoreROS::cb_oct_map,this);
     //sub_oct_obj = n->subscribe("/oct_obj",2,&PlanFsmoreROS::cb_oct_obj,this);
@@ -61,16 +63,17 @@ void PlanFsmoreROS::initializePlanner(){
     //nh.param<float>("min_intensity", min_intensity,5);
 
 }
+bool PlanFsmoreROS::checkValid(fsmore::CheckPoseValid::Request  &req,
+                               fsmore::CheckPoseValid::Response &res, PlanFsmore* planner){
 
+    if(!setupOctrees(planner)) return(false);
 
-bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
-                             nav_msgs::GetPlan::Response &res, PlanFsmore* planner)
-{
+    initializePlanner();
+    res.valid=planner->isValid(req.pose);
+    return(true);
 
-    printf("STARTING THE SERVICE THING\n");
-    ros::Time ts=ros::Time::now();
-
-
+}
+bool PlanFsmoreROS::setupOctrees(PlanFsmore* planner){
     if(srv_oct_map.exists() && srv_oct_obj.exists()){
         octomap_msgs::GetOctomap srv1,srv2;
         srv_oct_map.call(srv1.request,srv1.response);
@@ -78,9 +81,6 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         srv_oct_obj.call(srv2.request,srv2.response);
         srv2.response.map.header.stamp=ros::Time::now();
         pub_obj.publish(srv2.response.map);
-        ros::Duration d4=ros::Time::now()-ts;
-        printf("to0 -- called and published -- %f\n",d4.toSec());
-
 
         ROS_WARN("Size: %zu %zu",srv1.response.map.data.size(),srv2.response.map.data.size());
         octomap::AbstractOcTree *tree_map,*tree_obj;
@@ -88,48 +88,23 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         planner->setMapOctree(*(dynamic_cast<octomap::OcTree*>(tree_map)));
         tree_obj = octomap_msgs::msgToMap(srv2.response.map);
         planner->setObjOctree(*(dynamic_cast<octomap::OcTree*>(tree_obj)));
-
-        ros::Duration d5=ros::Time::now()-ts;
-        printf("to00 -- converted to octree -- %f\n",d5.toSec());
-
+        return(true);
     }
+    else{
+        return(false);
+    }
+}
 
-    ros::Duration d=ros::Time::now()-ts;
-    printf("to1-- %f\n",d.toSec());
+bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
+                             nav_msgs::GetPlan::Response &res, PlanFsmore* planner)
+{
 
-   ///ERASE Tiz
-//    octomap_msgs::Octomap oct_map_msg;
-//    planner->col_map->setOccupancyThres(0.75);
-//    octomap_msgs::binaryMapToMsg(*(planner->col_map->tree),oct_map_msg);
+    printf("STARTING THE SERVICE THING\n");
 
-//    for (auto it=planner->col_map->tree->begin_leafs();it!=planner->col_map->tree->end_leafs();it++){
-//        ROS_WARN_STREAM("MAP2: " << it.getX() << ","<< it.getY() << ","
-//                        << it.getZ() << ","<< it->getValue());
-//        if(it->getValue()>0.5)
-//            ROS_ERROR_STREAM("!!!MAP2: " << it.getX() << ","<< it.getY() << ","
-//                            << it.getZ() << ","<< it->getValue());
+    if(!setupOctrees(planner)) return(false);
 
-//    }
-//    oct_map_msg.header.stamp=ros::Time::now();
-//    oct_map_msg.header.frame_id="world";
-//    pub_map.publish(oct_map_msg);
-
-
-
-//    octomap_msgs::fullMapToMsg(*(planner->col_obj->tree),oct_map_msg);
-//    oct_map_msg.header.stamp=ros::Time::now();
-//    oct_map_msg.header.frame_id="graspedobject";
-//    pub_obj.publish(oct_map_msg);
-
-
-
-
-
-    initializePlanner();    
+    initializePlanner();
     geometry_msgs::PoseArray pose_solutions,pose_vertexes;
-
-    ros::Duration d2=ros::Time::now()-ts;
-    printf("to2-- %f\n",d2.toSec());
 
     ompl::base::PlannerStatus success = planner->getPlan(req.start.pose,req.goal.pose,pose_solutions,pose_vertexes);
     if(!success){
@@ -147,8 +122,6 @@ bool PlanFsmoreROS::planPath(nav_msgs::GetPlan::Request  &req,
         poseS.pose=pose_solutions.poses.at(i);
         res.plan.poses.push_back(poseS);
     }
-    ros::Duration d3=ros::Time::now()-ts;
-    printf("to3-- %f\n",d3.toSec());
 
     res.plan.header.frame_id=req.start.header.frame_id;
     res.plan.header.stamp=ros::Time::now();
