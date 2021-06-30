@@ -104,7 +104,7 @@ void MapFsmoreROS::cb_eepose(const geometry_msgs::PoseStamped::ConstPtr& msg){
 
 
 void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& msg){
-    ros::Time ts=ros::Time::now();
+    //ros::Time ts=ros::Time::now();
 
     if(first_ft_cb){
         bias_ft=msg->wrench;
@@ -144,6 +144,13 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         visualization_msgs::Marker lm_m=setupLines(world_frame);
         if(mapper.AddLine(toEigen(w.wrench.force),toEigen(w.wrench.torque),toEigen(gTw.transform),l_map,l_obj)){
            lm_m.color.b=0.5;
+           lm_m.color.g=0.0;
+           lm_m.ns="new";
+        }
+        else{
+            lm_m.color.b=0.0;
+            lm_m.color.g=0.5;
+            lm_m.ns="old";
         }
         AddToMarkerLines(l_map,lm_m);
         pub_line.publish(lm_m);
@@ -152,27 +159,21 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         mapper.AddEmpty(toEigen(gTw.transform));
     }
 
-    ros::Duration d0=ros::Time::now()-ts;
-    printf("fcallback (before clean)-- %f\n",d0.toSec());
+    //ros::Duration d0=ros::Time::now()-ts;
+    //printf("fcallback (before clean)-- %f\n",d0.toSec());
 
 
     mapper.CleanupLines();
 
-    ros::Duration d2=ros::Time::now()-ts;
-    printf("fcallback (before param)-- %f\n",d2.toSec());
 
     double min_intensity;
     n->param<double>("/min_intensity", min_intensity, 0.50);
-    ros::Duration d3=ros::Time::now()-ts;
-    printf("fcallback (before pub)-- %f\n",d3.toSec());
 
     PublishPointCloud(mapper.getMapPointCloud(min_intensity),pub_map_pc,world_frame);
     PublishPointCloud(mapper.getObjectPointCloud(min_intensity),pub_obj_pc,object_frame);
 
     //PublishOctrees(mapper.oct_map,pub_oct_map,world_frame);
     //PublishOctrees(mapper.oct_obj,pub_oct_obj,object_frame);
-    ros::Duration d=ros::Time::now()-ts;
-    printf("fcallback-- %f\n",d.toSec());
 
 }
 
@@ -205,7 +206,8 @@ visualization_msgs::Marker MapFsmoreROS::setupLines(std::string frame_id){
     lines.points.resize(40);
 
     lines.header.frame_id=frame_id;
-    lines.ns=frame_id;
+    //lines.ns=frame_id;
+    lines.lifetime=ros::Duration(1.0);
     lines.color.g = 1.0;
     return(lines);
 }

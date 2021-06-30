@@ -27,6 +27,8 @@ public:
     virtual bool isStateValid(const ompl::base::State *state) = 0;
     virtual void setStartAndGoal(geometry_msgs::Pose start,geometry_msgs::Pose goal) = 0;
     virtual void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound) = 0;
+    virtual bool isValid(geometry_msgs::Pose pose) = 0;
+
 
     OctTypePtr oct_map,oct_obj;
     fcl::OcTreef *col_map,*col_obj;
