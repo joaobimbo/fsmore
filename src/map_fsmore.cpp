@@ -69,8 +69,10 @@ bool MapFsmore::CompareLines(Line l1,Line l2){
 }
 
 bool MapFsmore::LineExists(std::list<Line> &lines,Line &l_in){
+    time_t now;
+    time(&now);
     for (auto it=lines.begin();it!=lines.end();it++){
-        if(CompareLines(l_in,*it)){
+        if(difftime(now,it->timestamp)<5.0 && CompareLines(l_in,*it)){
             time(&(it->timestamp));
             return true;
         }

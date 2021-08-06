@@ -33,7 +33,7 @@ void Plan_CSpace::pose_cb(const geometry_msgs::PoseStamped &msg){
 
 double Plan_CSpace::diff_pose(geometry_msgs::Pose2D p1, const ompl::base::SE2StateSpace::StateType *p2){
     double pdiff=sqrt((p1.x-p2->getX())*(p1.x-p2->getX())+(p1.y-p2->getY())*(p1.y-p2->getY()));
-    double adiff=fabs(p1.theta-p2->getYaw());
+    double adiff=fabs(p1.theta-p2->getYaw());    
     return(pdiff+adiff);
 }
 
@@ -73,10 +73,11 @@ void Plan_CSpace::setStartAndGoal(geometry_msgs::Pose start_pose,geometry_msgs::
     pdef->setStartAndGoalStates(start,goal);
 }
 
-void Plan_CSpace::setPlannerOptions(double step_siz,double timeout,Eigen::Vector3d min_bound, Eigen::Vector3d max_bound){
+void Plan_CSpace::setPlannerOptions(double step_siz,double timeout,Eigen::Vector3d min_bound, Eigen::Vector3d max_bound, double clearance){
     step_size=step_siz;
     plan_timeout=timeout;
     setBounds(min_bound,max_bound);
+    distance=clearance;
 }
 
 void Plan_CSpace::setBounds(Eigen::Vector3d min, Eigen::Vector3d max){
@@ -98,8 +99,8 @@ bool Plan_CSpace::isValid(geometry_msgs::Pose pose){
 bool Plan_CSpace::isStateValid(const ompl::base::State *state){
     const ompl::base::SE2StateSpace::StateType *se2state = state->as<ompl::base::SE2StateSpace::StateType>();
     for(auto it=occupied_poses.begin();it!=occupied_poses.end();it++){
-        if(diff_pose(*it,se2state)<0.05){
-            ROS_INFO("BIMP!");
+        //printf("dist: %f\n",diff_pose(*it,se2state));
+        if(diff_pose(*it,se2state)<distance){
             return(false);
         }
     }

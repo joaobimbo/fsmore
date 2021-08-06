@@ -47,7 +47,7 @@ PlanFsmoreROS::PlanFsmoreROS()
 
 void PlanFsmoreROS::initializePlanner(){
     Eigen::Vector3d min,max;
-    double step_size,plan_timeout;
+    double step_size,plan_timeout,clearance;
     n->param<double>("min_x", min.x(),-1);
     n->param<double>("max_x", max.x(),1);
     n->param<double>("min_y", min.y(),-1);
@@ -56,10 +56,9 @@ void PlanFsmoreROS::initializePlanner(){
     n->param<double>("max_z", max.z(),1);
     n->param<double>("planner_step_size", step_size,0.05);
     n->param<double>("plan_timeout", plan_timeout,10.0);
-    planner->setPlannerOptions(step_size,plan_timeout,min,max);
+    n->param<double>("sq_clearance", clearance,0.1);
+    planner->setPlannerOptions(step_size,plan_timeout,min,max,clearance);
     planner->setupPlanner();
-
-    //nh.param<float>("sq_clearance", clearance,0.0001);
     //nh.param<float>("min_intensity", min_intensity,5);
 
 }

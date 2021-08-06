@@ -19,7 +19,7 @@ public:
     void setBounds(Eigen::Vector3d min, Eigen::Vector3d max);
     bool isStateValid(const ompl::base::State *state);
     void setStartAndGoal(geometry_msgs::Pose start, geometry_msgs::Pose goal_pose);
-    void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound);
+    void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound, double distance);
     bool isValid(geometry_msgs::Pose pose);
 
 protected:

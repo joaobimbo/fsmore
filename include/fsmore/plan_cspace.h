@@ -24,8 +24,9 @@ public:
     double diff_pose(geometry_msgs::Pose2D p1, const ompl::base::SE2StateSpace::StateType *p2);
     void setupPlanner();
     ompl::base::PlannerStatus getPlan(geometry_msgs::Pose start, geometry_msgs::Pose goal, geometry_msgs::PoseArray &solution, geometry_msgs::PoseArray &vertexes);
-    void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound);
+    void setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound, double clearance);
     bool isValid(geometry_msgs::Pose pose);
+
 
     geometry_msgs::PoseStamped current_pose;
     std::vector<geometry_msgs::Pose2D> occupied_poses;
@@ -37,6 +38,7 @@ public:
     std::shared_ptr<ompl::base::SE2StateSpace> space;
     float height_z=0.2;
     geometry_msgs::Pose pose2Dto3D(double x,double y,double z,double ang);
+    float tolerance=0.05;
 
 };
 
