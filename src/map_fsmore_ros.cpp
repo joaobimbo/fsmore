@@ -155,7 +155,7 @@ void MapFsmoreROS::cb_contforce(const geometry_msgs::WrenchStamped::ConstPtr& ms
         AddToMarkerLines(l_map,lm_m);
         pub_line.publish(lm_m);
     }
-    if(MapTools::norm(w.wrench.force)<0.5 && (w.header.stamp-last_hit).toSec()>0.5){
+    if(MapTools::norm(w.wrench.force)<0.5 && (w.header.stamp-last_hit).toSec()>1.0){
         mapper.AddEmpty(toEigen(gTw.transform));
     }
 

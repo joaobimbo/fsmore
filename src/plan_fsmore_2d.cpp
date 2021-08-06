@@ -31,7 +31,7 @@ void PlanFsmore_2D::setStartAndGoal(geometry_msgs::Pose start_pose,geometry_msgs
     pdef->setStartAndGoalStates(start,goal);
 }
 
-void PlanFsmore_2D::setPlannerOptions(double step_siz,double timeout,Eigen::Vector3d min_bound, Eigen::Vector3d max_bound){
+void PlanFsmore_2D::setPlannerOptions(double step_siz, double timeout, Eigen::Vector3d min_bound, Eigen::Vector3d max_bound, double distance){
     step_size=step_siz;
     plan_timeout=timeout;
     setBounds(min_bound,max_bound);
