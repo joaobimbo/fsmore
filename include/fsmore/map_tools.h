@@ -3,7 +3,7 @@
 #include <eigen3/Eigen/Core>
 
 namespace MapTools {
-
+/*
 inline Eigen::Vector3f toEigen(float in[3] ){
     Eigen::Vector3f out;
     out.x()=in[0];
@@ -11,7 +11,7 @@ inline Eigen::Vector3f toEigen(float in[3] ){
     out.z()=in[2];
     return(out);
 }
-
+*/
 
 template <class VType> double norm(VType in){
   return(sqrt(in.x*in.x+in.y*in.y+in.z*in.z));

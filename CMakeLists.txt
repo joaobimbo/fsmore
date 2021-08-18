@@ -4,21 +4,29 @@ set(CMAKE_BUILD_TYPE Debug)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
-
+#add_compile_options(-fopenmp)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 
 find_package(catkin REQUIRED COMPONENTS
+    std_msgs
     cmake_modules
     roscpp
     tf2_ros
     pcl_conversions
     pcl_ros
+#    octomap_ros
+    octomap_msgs
+    ompl
     )
+find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
-
+find_package(FCL REQUIRED)
 find_package(PCL REQUIRED)
+find_package(CCD REQUIRED)
+find_package(octomap REQUIRED)
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -59,11 +67,11 @@ find_package(PCL REQUIRED)
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
+ add_service_files(
+   FILES
+   CheckPoseValid.srv
 #   Service2.srv
-# )
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -73,10 +81,11 @@ find_package(PCL REQUIRED)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs  # Or other packages containing msgs
+   geometry_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -113,8 +122,8 @@ catkin_package(
     ${catkin_INCLUDE_DIRS}    
 #  ${OMPL_INCLUDE_DIRS}
 #  LIBRARIES fsmore
-  CATKIN_DEPENDS roscpp
-  DEPENDS Eigen
+  CATKIN_DEPENDS roscpp octomap_ros
+  DEPENDS Eigen3
 )
 
 ###########
@@ -127,9 +136,14 @@ include_directories(
  include
  ${catkin_INCLUDE_DIRS}
  ${EIGEN3_INCLUDE_DIRS}
+ ${OCTOMAP_INCLUDE_DIRS}
+ ${OMPL_INCLUDE_DIRS}
+ ${FCL_INCLUDE_DIRS}
+ ${CCD_INCLUDE_DIRS}
  )
-add_definitions(${EIGEN_DEFINITIONS})
 
+add_definitions(${EIGEN_DEFINITIONS})
+link_libraries(${OCTOMAP_LIBRARIES}  ${OMPL_LIBRARY_DIRS} ${FCL_LIBRARY_DIRS})
 
 
 ## Declare a C++ library
@@ -149,7 +163,20 @@ add_definitions(${EIGEN_DEFINITIONS})
 
 add_executable(map_fsmore src/mapping_main.cpp src/map_fsmore_ros.cpp src/map_fsmore.cpp)
 add_dependencies(map_fsmore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(map_fsmore ${catkin_LIBRARIES} )
+target_compile_options(map_fsmore PRIVATE -Wall ${OpenMP_CXX_FLAGS})
+target_link_libraries(map_fsmore ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS} )
+
+
+add_executable(plan_fsmore2d src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_fsmore_2d.cpp)
+add_dependencies(plan_fsmore2d ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} ${OMPL_LIBRARIES} ${FCL_LIBRARIES} ${CCD_LIBRARIES})
+target_compile_definitions(plan_fsmore2d PUBLIC PLANNER_2D)
+
+add_executable(plan_cspace src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_cspace.cpp)
+add_dependencies(plan_cspace ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(plan_cspace ${catkin_LIBRARIES} ${OMPL_LIBRARIES} ${FCL_LIBRARIES} ${CCD_LIBRARIES})
+target_compile_definitions(plan_cspace PUBLIC PLANNER_CSPACE)
+
 
 
 ## Rename C++ executable without prefix
