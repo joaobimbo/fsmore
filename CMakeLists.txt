@@ -24,7 +24,7 @@ find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FCL REQUIRED)
 find_package(PCL REQUIRED)
-find_package(CCD REQUIRED)
+#find_package(CCD REQUIRED)
 find_package(octomap REQUIRED)
 
 ## System dependencies are found with CMake's conventions
@@ -139,7 +139,7 @@ include_directories(
  ${OCTOMAP_INCLUDE_DIRS}
  ${OMPL_INCLUDE_DIRS}
  ${FCL_INCLUDE_DIRS}
- ${CCD_INCLUDE_DIRS}
+ #${CCD_INCLUDE_DIRS}
  )
 
 add_definitions(${EIGEN_DEFINITIONS})
@@ -169,7 +169,9 @@ target_link_libraries(map_fsmore ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS} )
 
 add_executable(plan_fsmore2d src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_fsmore_2d.cpp)
 add_dependencies(plan_fsmore2d ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} ${OMPL_LIBRARIES} ${FCL_LIBRARIES} ${CCD_LIBRARIES})
+target_link_libraries(plan_fsmore2d ${catkin_LIBRARIES} ${OMPL_LIBRARIES} ${FCL_LIBRARIES} 
+#${CCD_LIBRARIES}
+)
 target_compile_definitions(plan_fsmore2d PUBLIC PLANNER_2D)
 
 add_executable(plan_cspace src/plan_fsmore_main.cpp src/plan_fsmore.cpp src/plan_fsmore_ros.cpp src/plan_cspace.cpp)
